@@ -610,7 +610,7 @@
     afficherLesNotes();
     ajusterHauteurZoneDeplacement();
     // Démarrer l'auto-téléchargement toutes les 10 minutes (600000 ms)
-    var autoDownloadInterval = setInterval(function() { telechargerNotes(); }, 10 * 60 * 1000);
+    var autoDownloadInterval = setInterval(function() { telechargerNotes(true); }, 10 * 60 * 1000);
 
     function ajusterHauteurZoneDeplacement() {
       let zoneDeplacement = document.getElementById('zoneDeplacement');
@@ -915,14 +915,116 @@
       dessinerLiens();
     });
 
+    // ----- SE SOUVENIR DU FICHIER ENTRE DEUX OUVERTURES -----
+    // IndexedDB est un petit espace de stockage du navigateur. Contrairement
+    // à une simple variable (qui s'oublie quand on ferme la page), il peut
+    // retenir le "raccourci" vers le fichier choisi, même après fermeture.
+    const IDB_NOM = "mon-deuxieme-cerveau";   // nom de la base
+    const IDB_STORE = "fichiers";             // nom du tiroir
+    const IDB_CLE = "fichier-notes";          // étiquette de l'objet rangé
+
+    // Ouvre (ou crée) la base de données.
+    function ouvrirBaseFichier() {
+      return new Promise(function(resolve, reject) {
+        let demande = indexedDB.open(IDB_NOM, 1);
+        demande.onupgradeneeded = function() {
+          demande.result.createObjectStore(IDB_STORE);
+        };
+        demande.onsuccess = function() { resolve(demande.result); };
+        demande.onerror = function() { reject(demande.error); };
+      });
+    }
+
+    // Range le "raccourci" du fichier dans IndexedDB.
+    async function memoriserFichier(handle) {
+      try {
+        let base = await ouvrirBaseFichier();
+        base.transaction(IDB_STORE, "readwrite")
+            .objectStore(IDB_STORE).put(handle, IDB_CLE);
+      } catch (e) { console.warn("Impossible de mémoriser le fichier :", e); }
+    }
+
+    // Récupère le "raccourci" du fichier rangé la dernière fois (ou null).
+    async function recupererFichierMemorise() {
+      try {
+        let base = await ouvrirBaseFichier();
+        return await new Promise(function(resolve) {
+          let req = base.transaction(IDB_STORE, "readonly")
+                        .objectStore(IDB_STORE).get(IDB_CLE);
+          req.onsuccess = function() { resolve(req.result || null); };
+          req.onerror = function() { resolve(null); };
+        });
+      } catch (e) { return null; }
+    }
+
+    // Vérifie qu'on a le droit d'écrire dans le fichier.
+    // Si "demander" est vrai, on peut afficher la petite demande de permission.
+    async function verifierPermissionFichier(handle, demander) {
+      if (!handle.queryPermission) return true; // vieux navigateur : on tente
+      let opts = { mode: "readwrite" };
+      if ((await handle.queryPermission(opts)) === "granted") return true;
+      if (demander && (await handle.requestPermission(opts)) === "granted") return true;
+      return false;
+    }
+
     // ----- TÉLÉCHARGER LES NOTES DANS UN FICHIER -----
-    async function telechargerNotes() {
+    // On garde en mémoire LE fichier choisi pour réécrire par-dessus
+    // à chaque téléchargement (au lieu de créer mes-notes (1).json, (2)...).
+    let fichierNotesEnregistre = null;
+
+    // "estAuto" = true quand c'est la sauvegarde automatique (toutes les 10 min).
+    // Dans ce cas on ne dérange JAMAIS l'utilisateur avec une fenêtre.
+    async function telechargerNotes(estAuto) {
       const spinner = document.getElementById('spinner');
       if (spinner) spinner.style.display = 'inline-block';
       // Permettre au navigateur d'afficher le spinner avant de bloquer potentiellement le thread
       await new Promise(requestAnimationFrame);
       try {
         let contenuJSON = JSON.stringify(mesNotes, null, 2);
+
+        // CAS 1 : le navigateur sait écrire directement dans un fichier
+        // (Chrome, Edge...). On réutilise toujours le MÊME fichier.
+        if (window.showSaveFilePicker) {
+          // Si on ne connaît pas encore le fichier, on tente de le récupérer
+          // depuis la dernière fois (IndexedDB).
+          if (!fichierNotesEnregistre) {
+            fichierNotesEnregistre = await recupererFichierMemorise();
+          }
+
+          // On a un fichier mémorisé : on vérifie la permission d'écrire.
+          if (fichierNotesEnregistre) {
+            let ok = await verifierPermissionFichier(fichierNotesEnregistre, !estAuto);
+            if (!ok) {
+              if (estAuto) return;            // auto-save : on ne dérange pas
+              fichierNotesEnregistre = null;  // sinon on rechoisira un fichier
+            }
+          }
+
+          // Toujours pas de fichier connu : on demande où enregistrer
+          // (sauf en auto-save, où on ne montre aucune fenêtre).
+          if (!fichierNotesEnregistre) {
+            if (estAuto) return;
+            fichierNotesEnregistre = await window.showSaveFilePicker({
+              suggestedName: "mes-notes.json",
+              types: [{
+                description: "Fichier de notes",
+                accept: { "application/json": [".json"] }
+              }]
+            });
+            // On le mémorise pour les prochaines ouvertures de la page.
+            await memoriserFichier(fichierNotesEnregistre);
+          }
+
+          // On écrit (ou réécrit) par-dessus le fichier déjà choisi.
+          let flux = await fichierNotesEnregistre.createWritable();
+          await flux.write(contenuJSON);
+          await flux.close();
+          return;
+        }
+
+        // CAS 2 : navigateur qui ne supporte pas l'API (Firefox, Safari...).
+        // On retombe sur le téléchargement classique.
+        if (estAuto) return; // pas de fenêtre intempestive en auto-save
         let blob = new Blob([contenuJSON], { type: "application/json" });
         let url = URL.createObjectURL(blob);
         let lien = document.createElement("a");
@@ -933,6 +1035,8 @@
         document.body.removeChild(lien);
         URL.revokeObjectURL(url);
       } catch (e) {
+        // Si l'utilisateur ferme la fenêtre de choix, ce n'est pas une vraie erreur.
+        if (e && e.name === 'AbortError') return;
         console.error('Erreur durant le téléchargement :', e);
       } finally {
         if (spinner) spinner.style.display = 'none';
@@ -942,8 +1046,48 @@
     // Le contrôle manuel est désormais un bouton "Télécharger" unique
 
     // ----- CHARGER LES NOTES DEPUIS UN FICHIER -----
-    function chargerNotes() {
+    async function chargerNotes() {
+      // Si le navigateur le permet (Chrome, Edge...), on ouvre le fichier
+      // ET on le retient : les futurs téléchargements écriront dans CE fichier.
+      if (window.showOpenFilePicker) {
+        try {
+          let [handle] = await window.showOpenFilePicker({
+            types: [{
+              description: "Fichier de notes",
+              accept: { "application/json": [".json"] }
+            }]
+          });
+          let fichier = await handle.getFile();
+          let texte = await fichier.text();
+          appliquerNotesImportees(texte);
+          // On retient ce fichier comme fichier de notes courant.
+          fichierNotesEnregistre = handle;
+          await memoriserFichier(handle);
+        } catch (e) {
+          if (e && e.name === 'AbortError') return; // l'utilisateur a annulé
+          console.error('Erreur en ouvrant le fichier :', e);
+        }
+        return;
+      }
+      // Sinon, méthode classique avec le champ fichier caché.
       document.getElementById("fichierNotes").click();
+    }
+
+    // Petite fonction commune qui range les notes importées (texte JSON).
+    function appliquerNotesImportees(texte) {
+      try {
+        let notesImportees = JSON.parse(texte);
+        if (Array.isArray(notesImportees)) {
+          mesNotes = notesImportees;
+          sauvegarderNotesEnStockage();
+          afficherLesNotes();
+          alert("✅ Notes chargées avec succès ! (" + mesNotes.length + " note(s))");
+        } else {
+          alert("❌ Le fichier n'est pas au bon format.");
+        }
+      } catch (erreur) {
+        alert("❌ Erreur en lisant le fichier : " + erreur.message);
+      }
     }
 
     document.getElementById("fichierNotes").addEventListener("change", function(event) {
@@ -952,20 +1096,7 @@
 
       let lecteur = new FileReader();
       lecteur.onload = function(e) {
-        try {
-          let notesImportees = JSON.parse(e.target.result);
-          
-          if (Array.isArray(notesImportees)) {
-            mesNotes = notesImportees;
-            sauvegarderNotesEnStockage();
-            afficherLesNotes();
-            alert("✅ Notes chargées avec succès ! (" + mesNotes.length + " note(s))");
-          } else {
-            alert("❌ Le fichier n'est pas au bon format.");
-          }
-        } catch (erreur) {
-          alert("❌ Erreur en lisant le fichier : " + erreur.message);
-        }
+        appliquerNotesImportees(e.target.result);
       };
       lecteur.readAsText(fichier);
     });
