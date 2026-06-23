@@ -38,7 +38,7 @@
       background: #f4f1ea;               /* couleur de fond (un beige doux) */
       color: #2c2c2a;                    /* couleur du texte */
       max-width: 800px;                  /* la page ne s'étale pas trop large */
-      margin: 40px auto;                 /* centre la page horizontalement */
+      margin: 12px auto;                 /* centre la page + colle un peu vers le haut */
       padding: 0 20px;
       line-height: 1.6;
     }
@@ -161,7 +161,7 @@
       left: 0;
       right: 0;
       width: 100vw;
-      top: 350px;
+      top: 300px;
       bottom: 0;
       padding: 12px;
       border-top: none; /* rendre invisible */
@@ -244,13 +244,21 @@
   <button onclick="ajouterNote()">Ajouter la note</button>
 
   <!-- Boutons pour gérer les fichiers -->
-    <div id="zoneBoutons" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ccc; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <div id="zoneBoutons" style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
     <button onclick="chargerNotes()" style="background: #ff9900;">📤 Charger des notes</button>
     <button id="telechargerUneFois" onclick="telechargerNotes()" style="background: #0066cc;">Télécharger</button>
     <button id="boutonRelier" onclick="basculerModeRelier()" style="background: #6b3fa0;">🔗 Relier</button>
     <button id="boutonSupprimerLiens" onclick="basculerModeSupprimerLiens(event)" style="background: #888;">🗑️ Supprimer liens</button>
     <span id="spinner" style="display: none;" class="spinner" aria-hidden="true"></span>
     <input type="file" id="fichierNotes" accept=".json" style="display: none;">
+
+    <!-- Zoom de la zone des notes (poussé à droite avec margin-left:auto) -->
+    <span style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+      <span style="font-size: 14px;">Zoom</span>
+      <button onclick="changerZoom(-0.1)" title="Dézoomer (zone plus grande)" style="padding: 6px 12px; background: #555;">➖</button>
+      <span id="niveauZoom" style="min-width: 42px; text-align: center; font-size: 14px;">100%</span>
+      <button onclick="changerZoom(0.1)" title="Rezoomer" style="padding: 6px 12px; background: #555;">➕</button>
+    </span>
   </div>
 
   <!-- Zone rectangulaire qui va du bas de la page jusqu'au dessous des boutons -->
@@ -289,6 +297,8 @@
     let dragStartX = 0;  // Position initiale du drag
     let dragStartY = 0;
     let tailOffset = 20; // pixels à ajouter à la largeur de la ligne (queue)
+    const CLE_ZOOM = "mon-deuxieme-cerveau-zoom";
+    let zoomNotes = 1;   // 1 = 100%. Plus petit = dézoomé = zone plus grande
 
     function escapeHtml(texte) {
       return texte
@@ -608,16 +618,46 @@
     // aucune position n'a encore été enregistrée (toute 1re ouverture).
     recentrerNotesAuCentre(false);
     afficherLesNotes();
+    // On retrouve le niveau de zoom de la dernière fois (s'il y en a un)
+    let zoomSauvegarde = parseFloat(localStorage.getItem(CLE_ZOOM));
+    if (!isNaN(zoomSauvegarde)) zoomNotes = Math.min(1, Math.max(0.4, zoomSauvegarde));
+    appliquerZoom();
     ajusterHauteurZoneDeplacement();
     // Démarrer l'auto-téléchargement toutes les 10 minutes (600000 ms)
     var autoDownloadInterval = setInterval(function() { telechargerNotes(true); }, 10 * 60 * 1000);
+
+    // ----- ZOOM DE LA ZONE DES NOTES -----
+    // On "rétrécit" tout le contenu (notes + traits) avec une transformation CSS.
+    // Quand on dézoome (zoomNotes < 1), on agrandit en même temps l'espace
+    // interne pour que la zone offre PLUS de place pour ranger les notes.
+    function appliquerZoom() {
+      let zone = document.getElementById('listeDesNotes');
+      if (!zone) return;
+      let taille = (100 / zoomNotes) + '%';   // ex: zoom 0.5 -> espace de 200%
+      zone.style.transformOrigin = '0 0';      // on rétrécit depuis le coin haut-gauche
+      zone.style.transform = 'scale(' + zoomNotes + ')';
+      zone.style.width = taille;
+      zone.style.height = taille;
+      let label = document.getElementById('niveauZoom');
+      if (label) label.textContent = Math.round(zoomNotes * 100) + '%';
+      try { localStorage.setItem(CLE_ZOOM, zoomNotes); } catch (e) {}
+      dessinerLiens();  // on redessine les traits à la nouvelle taille
+    }
+
+    // Change le zoom d'un cran. delta négatif = dézoomer, positif = rezoomer.
+    function changerZoom(delta) {
+      // On reste entre 40% et 100% (on ne zoome pas au-delà du normal)
+      zoomNotes = Math.min(1, Math.max(0.4, Math.round((zoomNotes + delta) * 10) / 10));
+      appliquerZoom();
+    }
 
     function ajusterHauteurZoneDeplacement() {
       let zoneDeplacement = document.getElementById('zoneDeplacement');
       let zoneBoutons = document.getElementById('zoneBoutons');
       if (!zoneDeplacement || !zoneBoutons) return;
       let rect = zoneBoutons.getBoundingClientRect();
-      zoneDeplacement.style.top = Math.round(rect.bottom + 10) + 'px';
+      // La zone commence juste SOUS les boutons pour ne pas les chevaucher
+      zoneDeplacement.style.top = Math.round(rect.bottom + 4) + 'px';
     }
     window.addEventListener('resize', ajusterHauteurZoneDeplacement);
     window.addEventListener('resize', dessinerLiens);
@@ -848,10 +888,12 @@
       dragMoved = true;
       let zone = document.getElementById('listeDesNotes');
       let zoneRect = zone.getBoundingClientRect();
-      let newX = clientX - dragStartX - zoneRect.left;
-      let newY = clientY - dragStartY - zoneRect.top;
-      newX = Math.max(0, Math.min(newX, zoneRect.width - noteEnDeplacement.offsetWidth));
-      newY = Math.max(0, Math.min(newY, zoneRect.height - noteEnDeplacement.offsetHeight));
+      // On divise par le zoom : un déplacement à l'écran correspond à un
+      // déplacement plus grand dans l'espace interne quand on est dézoomé.
+      let newX = (clientX - dragStartX - zoneRect.left) / zoomNotes;
+      let newY = (clientY - dragStartY - zoneRect.top) / zoomNotes;
+      newX = Math.max(0, Math.min(newX, zoneRect.width / zoomNotes - noteEnDeplacement.offsetWidth));
+      newY = Math.max(0, Math.min(newY, zoneRect.height / zoomNotes - noteEnDeplacement.offsetHeight));
       noteEnDeplacement.style.left = newX + 'px';
       noteEnDeplacement.style.top = newY + 'px';
       // Les traits reliés suivent la note en temps réel
