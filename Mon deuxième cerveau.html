@@ -72,6 +72,10 @@
     }
     button:hover { background: #1310d5; }  /* vert plus foncé au survol */
 
+    /* Barre d'outils sur UNE seule ligne : les éléments ne rétrécissent pas */
+    #zoneBoutons > * { flex-shrink: 0; }
+    #zoneBoutons button { white-space: nowrap; }
+
     .button-action {
       padding: 8px 10px;
       font-size: 14px;
@@ -245,7 +249,7 @@
   <button onclick="ajouterNote()">Ajouter la note</button>
 
   <!-- Boutons pour gérer les fichiers -->
-    <div id="zoneBoutons" style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <div id="zoneBoutons" style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; gap: 10px; flex-wrap: nowrap; align-items: center; justify-content: center;">
     <button onclick="chargerNotes()" style="background: #ff9900;">📤 Charger des notes</button>
     <button id="telechargerUneFois" onclick="telechargerNotes()" style="background: #0066cc;">Télécharger</button>
     <button id="boutonRelier" onclick="basculerModeRelier()" style="background: #6b3fa0;">🔗 Relier</button>
@@ -253,8 +257,8 @@
     <span id="spinner" style="display: none;" class="spinner" aria-hidden="true"></span>
     <input type="file" id="fichierNotes" accept=".json" style="display: none;">
 
-    <!-- Zoom de la zone des notes (poussé à droite avec margin-left:auto) -->
-    <span style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+    <!-- Zoom de la zone des notes (placé juste après les autres boutons) -->
+    <span style="display: flex; gap: 6px; align-items: center;">
       <span style="font-size: 14px;">Zoom</span>
       <button onclick="changerZoom(-0.1)" title="Dézoomer (zone plus grande)" style="padding: 6px 12px; background: #555;">➖</button>
       <input id="niveauZoom" type="number" min="10" max="200" step="1" value="100"
@@ -264,6 +268,7 @@
              style="width: 56px; margin: 0; text-align: center; font-size: 14px; padding: 6px;">
       <span style="font-size: 14px;">%</span>
       <button onclick="changerZoom(0.1)" title="Rezoomer" style="padding: 6px 12px; background: #555;">➕</button>
+      <button onclick="reinitialiserVue()" title="Zoom à 100%, vue recentrée, notes au milieu" style="padding: 6px 12px; background: #2e8b57;">⟲ Réinitialiser</button>
     </span>
   </div>
 
@@ -704,6 +709,16 @@
         zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pct / 100));
       }
       appliquerZoom();  // si la valeur est invalide, on réaffiche l'actuelle
+    }
+
+    // Remet tout à zéro : zoom à 100%, vue recentrée, notes ramenées au milieu.
+    function reinitialiserVue() {
+      zoomNotes = 1;                  // zoom à 100%
+      panX = 0; panY = 0;             // on recentre la vue (coin haut-gauche du canevas)
+      recentrerNotesAuCentre(true);   // on replace toutes les notes au milieu
+      afficherLesNotes();             // on réaffiche les notes à leur nouvelle place
+      sauvegarderNotesEnStockage();   // on garde ces positions
+      appliquerZoom();                // on applique le zoom + le déplacement
     }
 
     function ajusterHauteurZoneDeplacement() {
