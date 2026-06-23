@@ -579,7 +579,8 @@
         zoneClic.setAttribute('stroke', 'transparent');
         zoneClic.setAttribute('stroke-width', '16');
         zoneClic.style.pointerEvents = 'stroke';  // seul le trait capte les clics
-        zoneClic.style.cursor = 'pointer';
+        // La main (curseur) n'apparaît qu'en mode "Supprimer liens"
+        zoneClic.style.cursor = modeSupprimerLiens ? 'pointer' : 'default';
 
         // Un trait coché pour suppression (mode "Supprimer liens") est rouge et épais
         let estCoche = modeSupprimerLiens && liensSelectionnes.indexOf(cleLien(lien)) !== -1;
@@ -590,8 +591,9 @@
         trait.setAttribute('stroke-width', estCoche ? '4' : '2');
         trait.style.pointerEvents = 'none';
 
-        // Survol : le trait devient rouge pour montrer qu'on peut le sélectionner/supprimer
+        // Survol : le trait devient rouge SEULEMENT en mode "Supprimer liens"
         groupe.addEventListener('mouseenter', function() {
+          if (!modeSupprimerLiens) return;
           trait.setAttribute('stroke', '#cc0000');
           trait.setAttribute('stroke-width', estCoche ? '4' : '3');
         });
@@ -603,25 +605,17 @@
         });
         // Clic sur un trait
         groupe.addEventListener('click', function(event) {
+          // Hors du mode "Supprimer liens", cliquer un trait ne fait RIEN :
+          // on ne peut supprimer un lien qu'après avoir appuyé sur "Supprimer liens".
+          if (!modeSupprimerLiens) return;
           event.stopPropagation();  // ne pas déclencher l'annulation "clic ailleurs"
-          if (modeSupprimerLiens) {
-            // En mode "Supprimer liens" : on coche / décoche ce trait
-            let cle = cleLien(lien);
-            let pos = liensSelectionnes.indexOf(cle);
-            if (pos === -1) liensSelectionnes.push(cle);
-            else liensSelectionnes.splice(pos, 1);
-            majBoutonSupprimerLiens();
-            dessinerLiens();
-            return;
-          }
-          // Mode normal : suppression d'un seul trait avec confirmation
-          if (confirm('Supprimer ce trait ?')) {
-            liens = liens.filter(function(l) {
-              return !((l.a === lien.a && l.b === lien.b) || (l.a === lien.b && l.b === lien.a));
-            });
-            sauvegarderNotesEnStockage();
-            afficherLesNotes();
-          }
+          // En mode "Supprimer liens" : on coche / décoche ce trait
+          let cle = cleLien(lien);
+          let pos = liensSelectionnes.indexOf(cle);
+          if (pos === -1) liensSelectionnes.push(cle);
+          else liensSelectionnes.splice(pos, 1);
+          majBoutonSupprimerLiens();
+          dessinerLiens();
         });
 
         groupe.appendChild(zoneClic);
@@ -696,22 +690,27 @@
       dessinerLiens();  // on redessine les traits à la nouvelle taille
     }
 
-    // Règle le zoom EN GARDANT au centre de l'écran ce qui y est déjà.
-    // Sans ça, la caméra ne suit pas le zoom et les notes sortent du cadre.
-    function fixerZoom(nouveauZoom) {
+    // Règle le zoom EN GARDANT fixe un point donné de l'écran (ancreX, ancreY,
+    // en pixels relatifs au coin haut-gauche de la zone). Ainsi ce qui est sous
+    // ce point (les doigts, le centre...) ne bouge pas pendant le zoom.
+    function fixerZoomAutourDe(nouveauZoom, ancreX, ancreY) {
       nouveauZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, nouveauZoom));
+      // Point du canevas actuellement sous l'ancre (coordonnées internes)
+      let pointX = (ancreX - panX) / zoomNotes;
+      let pointY = (ancreY - panY) / zoomNotes;
+      zoomNotes = nouveauZoom;
+      // On recale la caméra pour que ce même point reste sous l'ancre
+      panX = ancreX - pointX * zoomNotes;
+      panY = ancreY - pointY * zoomNotes;
+      appliquerZoom();
+    }
+
+    // Règle le zoom en gardant fixe le CENTRE de l'écran (pour les boutons/clavier).
+    function fixerZoom(nouveauZoom) {
       let zoneDep = document.getElementById('zoneDeplacement');
       let rect = zoneDep ? zoneDep.getBoundingClientRect()
                          : { width: window.innerWidth, height: window.innerHeight };
-      let cx = rect.width / 2, cy = rect.height / 2;   // centre de l'écran
-      // Point du canevas actuellement au centre de l'écran (coordonnées internes)
-      let pointX = (cx - panX) / zoomNotes;
-      let pointY = (cy - panY) / zoomNotes;
-      zoomNotes = nouveauZoom;
-      // On recale la caméra pour que ce même point reste au centre
-      panX = cx - pointX * zoomNotes;
-      panY = cy - pointY * zoomNotes;
-      appliquerZoom();
+      fixerZoomAutourDe(nouveauZoom, rect.width / 2, rect.height / 2);
     }
 
     // Change le zoom d'un cran. delta négatif = dézoomer, positif = rezoomer.
@@ -1106,6 +1105,21 @@
     if (zonePourPan) {
       zonePourPan.addEventListener('mousedown', demarrerPan);
       zonePourPan.addEventListener('touchstart', demarrerPan, { passive: false });
+
+      // ----- ZOOM AU PAVÉ TACTILE (pincement à deux doigts) -----
+      // Le navigateur traduit le pincement en "molette + Ctrl". On capte ça
+      // pour zoomer/dézoomer autour de l'endroit où sont les doigts.
+      zonePourPan.addEventListener('wheel', function(event) {
+        if (!event.ctrlKey) return;   // seulement le pincement (ou Ctrl + molette)
+        event.preventDefault();        // empêche le zoom de la page entière
+        let rect = zonePourPan.getBoundingClientRect();
+        let ancreX = event.clientX - rect.left;  // position des doigts dans la zone
+        let ancreY = event.clientY - rect.top;
+        // deltaY < 0 = doigts qui s'écartent = zoomer ; > 0 = dézoomer.
+        // Le facteur exponentiel rend le zoom progressif et fluide.
+        let facteur = Math.exp(-event.deltaY * 0.01);
+        fixerZoomAutourDe(zoomNotes * facteur, ancreX, ancreY);
+      }, { passive: false });
     }
     window.addEventListener('mousemove', deplacerPan);
     window.addEventListener('touchmove', deplacerPan, { passive: false });
