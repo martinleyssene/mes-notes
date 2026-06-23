@@ -169,6 +169,7 @@
       box-sizing: border-box;
       overflow: hidden;
       z-index: 0;
+      cursor: grab;   /* main ouverte : on peut attraper le fond pour se déplacer */
     }
     #listeDesNotes {
       position: absolute;
@@ -298,7 +299,13 @@
     let dragStartY = 0;
     let tailOffset = 20; // pixels à ajouter à la largeur de la ligne (queue)
     const CLE_ZOOM = "mon-deuxieme-cerveau-zoom";
-    let zoomNotes = 1;   // 1 = 100%. Plus petit = dézoomé = zone plus grande
+    const CLE_PAN = "mon-deuxieme-cerveau-pan";
+    const ZOOM_MIN = 0.4;   // dézoom maximum (40%) : on voit alors TOUT le canevas
+    const ZOOM_MAX = 1;     // on ne grossit pas au-delà du normal
+    let zoomNotes = 1;   // 1 = 100%. Plus petit = dézoomé = on voit plus de choses
+    // Déplacement (pan) : de combien de pixels le canevas est décalé à l'écran.
+    let panX = 0;
+    let panY = 0;
 
     function escapeHtml(texte) {
       return texte
@@ -618,36 +625,68 @@
     // aucune position n'a encore été enregistrée (toute 1re ouverture).
     recentrerNotesAuCentre(false);
     afficherLesNotes();
-    // On retrouve le niveau de zoom de la dernière fois (s'il y en a un)
+    // On retrouve le niveau de zoom et le déplacement de la dernière fois
     let zoomSauvegarde = parseFloat(localStorage.getItem(CLE_ZOOM));
-    if (!isNaN(zoomSauvegarde)) zoomNotes = Math.min(1, Math.max(0.4, zoomSauvegarde));
+    if (!isNaN(zoomSauvegarde)) zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomSauvegarde));
+    try {
+      let panSauvegarde = JSON.parse(localStorage.getItem(CLE_PAN));
+      if (panSauvegarde) { panX = panSauvegarde.x || 0; panY = panSauvegarde.y || 0; }
+    } catch (e) {}
     appliquerZoom();
     ajusterHauteurZoneDeplacement();
     // Démarrer l'auto-téléchargement toutes les 10 minutes (600000 ms)
     var autoDownloadInterval = setInterval(function() { telechargerNotes(true); }, 10 * 60 * 1000);
 
-    // ----- ZOOM DE LA ZONE DES NOTES -----
-    // On "rétrécit" tout le contenu (notes + traits) avec une transformation CSS.
-    // Quand on dézoome (zoomNotes < 1), on agrandit en même temps l'espace
-    // interne pour que la zone offre PLUS de place pour ranger les notes.
+    // ----- ZOOM ET DÉPLACEMENT (PAN) DE LA ZONE DES NOTES -----
+    // Le canevas (la zone des notes) est FIXE et plus grand que l'écran
+    // (250% = 100/40%). Le zoom décide quelle portion on voit :
+    //   - à 40% (dézoom max), tout le canevas tient à l'écran ;
+    //   - à 100%, on n'en voit qu'une partie et on se déplace dedans.
+
+    // Empêche de déplacer le canevas trop loin (pas de "vide" sur les bords).
+    function limiterPan() {
+      let zoneDep = document.getElementById('zoneDeplacement');
+      if (!zoneDep) return;
+      let rect = zoneDep.getBoundingClientRect();
+      // Taille du contenu réellement affiché à l'écran
+      let contenuW = rect.width * zoomNotes / ZOOM_MIN;
+      let contenuH = rect.height * zoomNotes / ZOOM_MIN;
+      let minX = Math.min(0, rect.width - contenuW);
+      let minY = Math.min(0, rect.height - contenuH);
+      panX = Math.min(0, Math.max(minX, panX));
+      panY = Math.min(0, Math.max(minY, panY));
+    }
+
+    // Met juste à jour la position/zoom du canevas (rapide, pour le déplacement).
+    function appliquerTransform() {
+      let zone = document.getElementById('listeDesNotes');
+      if (!zone) return;
+      limiterPan();
+      zone.style.transformOrigin = '0 0';
+      zone.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoomNotes + ')';
+    }
+
+    // Application complète : taille du canevas, transformation, étiquette,
+    // sauvegarde et redessin des traits. Utilisée au démarrage et au zoom.
     function appliquerZoom() {
       let zone = document.getElementById('listeDesNotes');
       if (!zone) return;
-      let taille = (100 / zoomNotes) + '%';   // ex: zoom 0.5 -> espace de 200%
-      zone.style.transformOrigin = '0 0';      // on rétrécit depuis le coin haut-gauche
-      zone.style.transform = 'scale(' + zoomNotes + ')';
+      let taille = (100 / ZOOM_MIN) + '%';   // canevas fixe (ex: 250%)
       zone.style.width = taille;
       zone.style.height = taille;
+      appliquerTransform();
       let label = document.getElementById('niveauZoom');
       if (label) label.textContent = Math.round(zoomNotes * 100) + '%';
-      try { localStorage.setItem(CLE_ZOOM, zoomNotes); } catch (e) {}
+      try {
+        localStorage.setItem(CLE_ZOOM, zoomNotes);
+        localStorage.setItem(CLE_PAN, JSON.stringify({ x: panX, y: panY }));
+      } catch (e) {}
       dessinerLiens();  // on redessine les traits à la nouvelle taille
     }
 
     // Change le zoom d'un cran. delta négatif = dézoomer, positif = rezoomer.
     function changerZoom(delta) {
-      // On reste entre 40% et 100% (on ne zoome pas au-delà du normal)
-      zoomNotes = Math.min(1, Math.max(0.4, Math.round((zoomNotes + delta) * 10) / 10));
+      zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoomNotes + delta) * 10) / 10));
       appliquerZoom();
     }
 
@@ -945,6 +984,59 @@
     window.addEventListener('mouseup', terminerDeplacement);
     window.addEventListener('touchend', terminerDeplacement);
     window.addEventListener('touchcancel', terminerDeplacement);
+
+    // ----- SE DÉPLACER DANS LA PAGE (PAN) -----
+    // On maintient le clic gauche sur le FOND et on bouge la souris.
+    // Le déplacement des NOTES est prioritaire : quand on clique une note,
+    // sa fonction "demarrerDeplacement" appelle stopPropagation(), donc ce
+    // mousedown-ci ne se déclenche pas et le fond ne bouge pas.
+    let enPan = false;          // true pendant un déplacement du fond
+    let panSourisX = 0, panSourisY = 0;  // position de la souris au départ
+    let panDepartX = 0, panDepartY = 0;  // valeurs de panX/panY au départ
+
+    function demarrerPan(event) {
+      // En mode "Relier"/"Supprimer liens", on garde le comportement par clic
+      if (modeRelier || modeSupprimerLiens) return;
+      // Pas de pan si on clique sur une note, un bouton ou un champ
+      if (event.target.closest('.note') || event.target.closest('button') ||
+          event.target.closest('input') || event.target.closest('textarea')) return;
+      if (event.type === 'mousedown' && event.button !== 0) return; // clic gauche seulement
+      let p = event.touches ? event.touches[0] : event;
+      enPan = true;
+      panSourisX = p.clientX; panSourisY = p.clientY;
+      panDepartX = panX; panDepartY = panY;
+      document.body.style.cursor = 'grabbing';
+    }
+
+    function deplacerPan(event) {
+      if (!enPan) return;
+      let p = event.touches ? event.touches[0] : event;
+      panX = panDepartX + (p.clientX - panSourisX);
+      panY = panDepartY + (p.clientY - panSourisY);
+      appliquerTransform();   // mise à jour rapide (les traits suivent tout seuls)
+      event.preventDefault();
+    }
+
+    function terminerPan() {
+      if (!enPan) return;
+      enPan = false;
+      document.body.style.cursor = '';
+      // On mémorise la nouvelle position
+      try { localStorage.setItem(CLE_PAN, JSON.stringify({ x: panX, y: panY })); } catch (e) {}
+    }
+
+    let zonePourPan = document.getElementById('zoneDeplacement');
+    if (zonePourPan) {
+      zonePourPan.addEventListener('mousedown', demarrerPan);
+      zonePourPan.addEventListener('touchstart', demarrerPan, { passive: false });
+    }
+    window.addEventListener('mousemove', deplacerPan);
+    window.addEventListener('touchmove', deplacerPan, { passive: false });
+    window.addEventListener('mouseup', terminerPan);
+    window.addEventListener('touchend', terminerPan);
+    window.addEventListener('touchcancel', terminerPan);
+    // Si la fenêtre change de taille, on re-cale le canevas proprement
+    window.addEventListener('resize', appliquerZoom);
 
     // En mode "Supprimer liens", un clic AILLEURS que sur un trait ou le bouton
     // annule tout (désélectionne) et désactive le mode.
