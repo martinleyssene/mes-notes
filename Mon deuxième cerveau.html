@@ -310,8 +310,9 @@
     let tailOffset = 20; // pixels à ajouter à la largeur de la ligne (queue)
     const CLE_ZOOM = "mon-deuxieme-cerveau-zoom";
     const CLE_PAN = "mon-deuxieme-cerveau-pan";
-    const ZOOM_MIN = 0.1;   // dézoom maximum (10%) : on voit alors TOUT le canevas
+    const ZOOM_MIN = 0.1;   // dézoom maximum (10%)
     const ZOOM_MAX = 2;     // zoom maximum (200%) : on peut aussi grossir
+    const CANEVAS_FACTEUR = 2;  // taille du canevas (2 = deux fois plus grand dans toutes les directions)
     let zoomNotes = 1;   // 1 = 100%. Plus petit = dézoomé = on voit plus de choses
     // Déplacement (pan) : de combien de pixels le canevas est décalé à l'écran.
     let panX = 0;
@@ -659,8 +660,8 @@
       if (!zoneDep) return;
       let rect = zoneDep.getBoundingClientRect();
       // Taille du contenu réellement affiché à l'écran
-      let contenuW = rect.width * zoomNotes / ZOOM_MIN;
-      let contenuH = rect.height * zoomNotes / ZOOM_MIN;
+      let contenuW = rect.width * zoomNotes / ZOOM_MIN * CANEVAS_FACTEUR;
+      let contenuH = rect.height * zoomNotes / ZOOM_MIN * CANEVAS_FACTEUR;
       let minX = Math.min(0, rect.width - contenuW);
       let minY = Math.min(0, rect.height - contenuH);
       panX = Math.min(0, Math.max(minX, panX));
@@ -681,7 +682,7 @@
     function appliquerZoom() {
       let zone = document.getElementById('listeDesNotes');
       if (!zone) return;
-      let taille = (100 / ZOOM_MIN) + '%';   // canevas fixe (ex: 250%)
+      let taille = (100 / ZOOM_MIN * CANEVAS_FACTEUR) + '%';   // canevas fixe
       zone.style.width = taille;
       zone.style.height = taille;
       appliquerTransform();
@@ -695,27 +696,62 @@
       dessinerLiens();  // on redessine les traits à la nouvelle taille
     }
 
+    // Règle le zoom EN GARDANT au centre de l'écran ce qui y est déjà.
+    // Sans ça, la caméra ne suit pas le zoom et les notes sortent du cadre.
+    function fixerZoom(nouveauZoom) {
+      nouveauZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, nouveauZoom));
+      let zoneDep = document.getElementById('zoneDeplacement');
+      let rect = zoneDep ? zoneDep.getBoundingClientRect()
+                         : { width: window.innerWidth, height: window.innerHeight };
+      let cx = rect.width / 2, cy = rect.height / 2;   // centre de l'écran
+      // Point du canevas actuellement au centre de l'écran (coordonnées internes)
+      let pointX = (cx - panX) / zoomNotes;
+      let pointY = (cy - panY) / zoomNotes;
+      zoomNotes = nouveauZoom;
+      // On recale la caméra pour que ce même point reste au centre
+      panX = cx - pointX * zoomNotes;
+      panY = cy - pointY * zoomNotes;
+      appliquerZoom();
+    }
+
     // Change le zoom d'un cran. delta négatif = dézoomer, positif = rezoomer.
     function changerZoom(delta) {
-      zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoomNotes + delta) * 10) / 10));
-      appliquerZoom();
+      fixerZoom(Math.round((zoomNotes + delta) * 10) / 10);
     }
 
     // Applique une taille de zoom tapée à la main (en pourcentage).
     function definirZoom(valeurPourcent) {
       let pct = parseFloat(valeurPourcent);
-      if (!isNaN(pct)) {
-        // On reste dans les limites autorisées (entre ZOOM_MIN et ZOOM_MAX)
-        zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pct / 100));
-      }
-      appliquerZoom();  // si la valeur est invalide, on réaffiche l'actuelle
+      if (!isNaN(pct)) fixerZoom(pct / 100);
+      else appliquerZoom();  // valeur invalide : on réaffiche l'actuelle
     }
 
-    // Remet tout à zéro : zoom à 100%, vue recentrée, notes ramenées au milieu.
+    // Calcule la taille réelle du canevas (et du viewport visible) en pixels.
+    function tailleCanevas() {
+      let zoneDep = document.getElementById('zoneDeplacement');
+      let rect = zoneDep ? zoneDep.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+      return {
+        largeur: rect.width * CANEVAS_FACTEUR / ZOOM_MIN,   // largeur totale du canevas
+        hauteur: rect.height * CANEVAS_FACTEUR / ZOOM_MIN,  // hauteur totale du canevas
+        vueLargeur: rect.width,    // ce qu'on voit à l'écran
+        vueHauteur: rect.height
+      };
+    }
+
+    // Remet tout à zéro : zoom à 100%, notes au CENTRE du canevas, caméra centrée.
     function reinitialiserVue() {
-      zoomNotes = 1;                  // zoom à 100%
-      panX = 0; panY = 0;             // on recentre la vue (coin haut-gauche du canevas)
-      recentrerNotesAuCentre(true);   // on replace toutes les notes au milieu
+      zoomNotes = 1;                       // zoom à 100%
+      let c = tailleCanevas();
+      // On place les notes au centre du canevas (empilées et centrées verticalement)
+      let baseX = Math.round(c.largeur / 2 - 220);   // 220 ≈ moitié de la largeur d'une note
+      let baseY = Math.round(c.hauteur / 2 - 80 - (mesNotes.length - 1) * 55);
+      positionsNotes = {};
+      for (let i = 0; i < mesNotes.length; i++) {
+        positionsNotes[i] = { x: baseX, y: baseY + i * 110 };
+      }
+      // On centre la caméra sur le centre du canevas
+      panX = c.vueLargeur / 2 - (c.largeur / 2) * zoomNotes;
+      panY = c.vueHauteur / 2 - (c.hauteur / 2) * zoomNotes;
       afficherLesNotes();             // on réaffiche les notes à leur nouvelle place
       sauvegarderNotesEnStockage();   // on garde ces positions
       appliquerZoom();                // on applique le zoom + le déplacement
