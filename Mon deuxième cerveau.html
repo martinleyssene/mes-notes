@@ -258,6 +258,21 @@
     /* La première note choisie pour un lien est mise en évidence */
     .note.note-selection-lien { outline: 3px solid #9b59b6; outline-offset: 2px; }
 
+    /* ----- Sélection multiple ----- */
+    /* Note actuellement sélectionnée (entourée en bleu) */
+    .note.note-selectionnee { outline: 3px solid #1e88e5; outline-offset: 2px; }
+    /* En mode sélection, le curseur sur le fond devient une croix */
+    body.mode-selection #zoneDeplacement { cursor: crosshair; }
+    /* Le rectangle bleu tracé pendant la sélection */
+    #rectSelection {
+      position: fixed;
+      display: none;
+      border: 1.5px solid #1e88e5;
+      background: rgba(30, 136, 229, 0.15);
+      z-index: 99998;
+      pointer-events: none;   /* il ne doit jamais intercepter les clics */
+    }
+
     /* ----- Panneau de saisie rétractable ----- */
     /* Le panneau qui contient le titre, la saisie et tous les boutons.
        On lui ajoute une transition pour qu'il glisse en douceur. */
@@ -326,6 +341,7 @@
     <button id="boutonPartager" onclick="partagerNotes()" title="Crée un fichier HTML contenant tes notes, à envoyer à qui tu veux" style="background: #009688;">🔗 Partager</button>
     <button id="boutonRelier" onclick="basculerModeRelier()" style="background: #6b3fa0;">🔗 Relier</button>
     <button id="boutonSupprimerLiens" onclick="basculerModeSupprimerLiens(event)" style="background: #888;">🗑️ Supprimer liens</button>
+    <button id="boutonSelection" onclick="basculerModeSelection()" title="Sélectionner plusieurs notes en traçant un rectangle, puis les déplacer ensemble" style="background: #1e88e5;">⬚ Sélection</button>
     <span id="spinner" style="display: none;" class="spinner" aria-hidden="true"></span>
     <input type="file" id="fichierNotes" accept=".json" style="display: none;">
 
@@ -351,6 +367,8 @@
     <div id="listeDesNotes"></div>
     <div id="zoneLimite" aria-hidden="true"></div>
   </div>
+  <!-- Rectangle bleu tracé pendant la sélection multiple -->
+  <div id="rectSelection" aria-hidden="true"></div>
 
 
   <!-- ---------- JS : le cerveau. C'est lui qui fait tout marcher ---------- -->
@@ -380,6 +398,15 @@
     let premiereNotePourLien = null;// 1re note cliquée en attente de la 2e
     let modeSupprimerLiens = false; // true quand le bouton "Supprimer des liens" est actif
     let liensSelectionnes = [];     // clés "min-max" des traits cochés pour suppression
+    // ----- SÉLECTION MULTIPLE (rectangle au cliquer-glisser) -----
+    let modeSelection = false;      // true quand le bouton "Sélection" est actif
+    let notesSelectionnees = [];    // index des notes actuellement sélectionnées
+    let tracageRect = false;        // true pendant le tracé du rectangle de sélection
+    let rectDepartX = 0, rectDepartY = 0;  // coin de départ du rectangle (coords écran)
+    let rectABouge = false;         // true si la souris a vraiment bougé pendant le tracé
+    let deplacementGroupe = false;  // true quand on déplace plusieurs notes d'un coup
+    let groupeDepart = [];          // positions de départ des notes du groupe déplacé
+    let groupeSourisX = 0, groupeSourisY = 0;  // position souris au début du déplacement groupé
     const SVG_NS = 'http://www.w3.org/2000/svg';
 
     // Clé unique d'un lien, indépendante de l'ordre des deux notes
@@ -571,8 +598,9 @@
     function basculerModeRelier() {
       modeRelier = !modeRelier;
       premiereNotePourLien = null;
-      // Les deux modes (Relier / Supprimer liens) ne coexistent pas
+      // Les modes ne coexistent pas
       if (modeRelier && modeSupprimerLiens) quitterModeSupprimerLiens();
+      if (modeRelier && modeSelection) quitterModeSelection();
       document.body.classList.toggle('mode-relier', modeRelier);
       let bouton = document.getElementById('boutonRelier');
       if (bouton) {
@@ -632,6 +660,7 @@
       } else {
         // activation du mode
         if (modeRelier) basculerModeRelier();  // on ne cumule pas les deux modes
+        if (modeSelection) quitterModeSelection();
         modeSupprimerLiens = true;
         liensSelectionnes = [];
         document.body.classList.add('mode-supprimer-liens');
@@ -660,6 +689,54 @@
         b.textContent = '🗑️ Supprimer liens';
         b.style.background = '#888';
       }
+    }
+
+    // ----- MODE SÉLECTION MULTIPLE -----
+    // Le bouton "⬚ Sélection" change l'action du clic-glissé sur le fond :
+    // au lieu de déplacer la vue, on trace un rectangle qui sélectionne les
+    // notes dessous. On peut ensuite déplacer toutes les notes sélectionnées
+    // d'un coup. Un clic dans le vide désactive (vide) la sélection.
+    function basculerModeSelection() {
+      modeSelection = !modeSelection;
+      if (modeSelection) {
+        // On ne cumule pas les modes
+        if (modeRelier) basculerModeRelier();
+        if (modeSupprimerLiens) quitterModeSupprimerLiens();
+      } else {
+        viderSelection();
+      }
+      document.body.classList.toggle('mode-selection', modeSelection);
+      let b = document.getElementById('boutonSelection');
+      if (b) {
+        b.textContent = modeSelection ? '⬚ Trace un rectangle…' : '⬚ Sélection';
+        b.style.background = modeSelection ? '#0d47a1' : '#1e88e5';
+      }
+    }
+
+    // Quand on quitte le mode, on enlève la sélection en cours.
+    function quitterModeSelection() {
+      modeSelection = false;
+      viderSelection();
+      document.body.classList.remove('mode-selection');
+      let b = document.getElementById('boutonSelection');
+      if (b) { b.textContent = '⬚ Sélection'; b.style.background = '#1e88e5'; }
+    }
+
+    // Vide la sélection (aucune note sélectionnée) et enlève la surbrillance.
+    function viderSelection() {
+      notesSelectionnees = [];
+      majSurbrillanceSelection();
+    }
+
+    // Met à jour le contour bleu sur les notes sélectionnées.
+    function majSurbrillanceSelection() {
+      document.querySelectorAll('.note.note-selectionnee').forEach(function(n) {
+        n.classList.remove('note-selectionnee');
+      });
+      notesSelectionnees.forEach(function(i) {
+        let el = document.querySelector('.note[data-index="' + i + '"]');
+        if (el) el.classList.add('note-selectionnee');
+      });
     }
 
     // Dessine tous les traits reliant les notes, du centre de l'une au centre de l'autre.
@@ -1028,6 +1105,9 @@
       });
       // Dessiner les traits qui relient les notes
       dessinerLiens();
+      // Réappliquer la surbrillance des notes sélectionnées (le rendu a recréé
+      // les éléments, donc les contours bleus doivent être remis).
+      majSurbrillanceSelection();
     }
 
     // ----- IMPORTER UNE OU PLUSIEURS IMAGES DANS UNE NOTE -----
@@ -1090,6 +1170,15 @@
       // En mode "Supprimer liens", cliquer une note ne fait rien de spécial :
       // on laisse le clic remonter pour annuler le mode (voir clic "ailleurs").
       if (modeSupprimerLiens) {
+        return;
+      }
+      // En mode "Sélection", un clic ajoute/retire la note de la sélection
+      // (sans la réduire/agrandir).
+      if (modeSelection) {
+        let pos = notesSelectionnees.indexOf(index);
+        if (pos === -1) notesSelectionnees.push(index);
+        else notesSelectionnees.splice(pos, 1);
+        majSurbrillanceSelection();
         return;
       }
       notesReduites[index] = !notesReduites[index];
@@ -1165,6 +1254,20 @@
       dragStartX = clientX - rect.left;
       dragStartY = clientY - rect.top;
       dragMoved = false;
+      // Déplacement GROUPÉ : si on attrape une note déjà sélectionnée, on prépare
+      // le déplacement simultané de TOUTES les notes sélectionnées.
+      deplacementGroupe = false;
+      if (modeSelection && notesSelectionnees.length > 0 &&
+          notesSelectionnees.indexOf(indexEnCoursDeDeplacement) !== -1) {
+        deplacementGroupe = true;
+        groupeSourisX = clientX;
+        groupeSourisY = clientY;
+        let zoneG = document.getElementById('listeDesNotes');
+        groupeDepart = notesSelectionnees.map(function(i) {
+          let el = zoneG ? zoneG.querySelector('.note[data-index="' + i + '"]') : null;
+          return el ? { index: i, el: el, x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0 } : null;
+        }).filter(Boolean);
+      }
       document.body.style.userSelect = 'none';
       document.body.style.webkitUserSelect = 'none';
       document.body.style.msUserSelect = 'none';
@@ -1183,6 +1286,19 @@
       dragMoved = true;
       let zone = document.getElementById('listeDesNotes');
       let zoneRect = zone.getBoundingClientRect();
+      // Déplacement GROUPÉ : on décale toutes les notes du groupe du même delta.
+      if (deplacementGroupe) {
+        let dx = (clientX - groupeSourisX) / zoomNotes;
+        let dy = (clientY - groupeSourisY) / zoomNotes;
+        groupeDepart.forEach(function(g) {
+          let nx = Math.max(0, Math.min(g.x + dx, zoneRect.width / zoomNotes - g.el.offsetWidth));
+          let ny = Math.max(0, Math.min(g.y + dy, zoneRect.height / zoomNotes - g.el.offsetHeight));
+          g.el.style.left = nx + 'px';
+          g.el.style.top = ny + 'px';
+        });
+        dessinerLiens();
+        return;
+      }
       // On divise par le zoom : un déplacement à l'écran correspond à un
       // déplacement plus grand dans l'espace interne quand on est dézoomé.
       let newX = (clientX - dragStartX - zoneRect.left) / zoomNotes;
@@ -1214,10 +1330,20 @@
           }
         }, 220);
       }
+      // Déplacement GROUPÉ : on enregistre la nouvelle position de chaque note
+      // du groupe (en gardant leur profondeur z existante).
+      if (deplacementGroupe) {
+        groupeDepart.forEach(function(g) {
+          let gx = parseInt(g.el.style.left || 0);
+          let gy = parseInt(g.el.style.top || 0);
+          positionsNotes[g.index] = Object.assign({}, positionsNotes[g.index], { x: gx, y: gy });
+        });
+        sauvegarderNotesEnStockage();
+      }
       let index = parseInt(noteEnDeplacement.getAttribute('data-index'));
       let newX = parseInt(noteEnDeplacement.style.left || 0);
       let newY = parseInt(noteEnDeplacement.style.top || 0);
-      positionsNotes[index] = { x: newX, y: newY };
+      positionsNotes[index] = Object.assign({}, positionsNotes[index], { x: newX, y: newY });
       amenerNoteAuPremierPlan(index);  // la note déposée reste devant les autres
       noteEnDeplacement.style.zIndex = positionsNotes[index].z;  // effet immédiat, sans re-affichage
       sauvegarderNotesEnStockage();
@@ -1229,6 +1355,8 @@
       noteEnDeplacement = null;
       indexEnCoursDeDeplacement = null;
       dragMoved = false;
+      deplacementGroupe = false;
+      groupeDepart = [];
       document.body.style.userSelect = '';
       document.body.style.webkitUserSelect = '';
       document.body.style.msUserSelect = '';
@@ -1255,6 +1383,9 @@
       // "Relier" et "Supprimer liens") : le pan ne démarre que sur le fond vide
       // (les clics sur les notes/boutons/champs sont exclus juste après), donc
       // il n'interfère pas avec la sélection des notes ou des liens.
+      // En mode "Sélection", le clic-glissé sur le fond trace un rectangle de
+      // sélection (voir demarrerSelectionRect) au lieu de déplacer la vue.
+      if (modeSelection) return;
       // Pas de pan si on clique sur une note, un bouton ou un champ
       if (event.target.closest('.note') || event.target.closest('button') ||
           event.target.closest('input') || event.target.closest('textarea')) return;
@@ -1293,10 +1424,78 @@
       try { localStorage.setItem(CLE_PAN, JSON.stringify({ x: panX, y: panY })); } catch (e) {}
     }
 
+    // ----- TRACÉ DU RECTANGLE DE SÉLECTION (mode "Sélection") -----
+    function demarrerSelectionRect(event) {
+      if (!modeSelection) return;
+      // Seulement sur le fond vide (pas sur une note, un bouton, un champ)
+      if (event.target.closest('.note') || event.target.closest('button') ||
+          event.target.closest('input') || event.target.closest('textarea')) return;
+      if (event.type === 'mousedown' && event.button !== 0) return;
+      let p = event.touches ? event.touches[0] : event;
+      tracageRect = true;
+      rectABouge = false;
+      rectDepartX = p.clientX;
+      rectDepartY = p.clientY;
+      let r = document.getElementById('rectSelection');
+      if (r) {
+        r.style.left = rectDepartX + 'px';
+        r.style.top = rectDepartY + 'px';
+        r.style.width = '0px';
+        r.style.height = '0px';
+        r.style.display = 'block';
+      }
+      event.preventDefault();
+    }
+
+    function deplacerSelectionRect(event) {
+      if (!tracageRect) return;
+      let p = event.touches ? event.touches[0] : event;
+      let x = p.clientX, y = p.clientY;
+      if (Math.abs(x - rectDepartX) > 3 || Math.abs(y - rectDepartY) > 3) rectABouge = true;
+      let left = Math.min(x, rectDepartX), top = Math.min(y, rectDepartY);
+      let r = document.getElementById('rectSelection');
+      if (r) {
+        r.style.left = left + 'px';
+        r.style.top = top + 'px';
+        r.style.width = Math.abs(x - rectDepartX) + 'px';
+        r.style.height = Math.abs(y - rectDepartY) + 'px';
+      }
+      event.preventDefault();
+    }
+
+    function terminerSelectionRect() {
+      if (!tracageRect) return;
+      tracageRect = false;
+      let r = document.getElementById('rectSelection');
+      let boite = r ? r.getBoundingClientRect() : null;
+      if (r) r.style.display = 'none';
+      // Simple clic dans le vide (pas de tracé) → on vide la sélection
+      if (!rectABouge || !boite) {
+        viderSelection();
+        return;
+      }
+      // On sélectionne toutes les notes qui chevauchent le rectangle
+      let nouvelles = [];
+      document.querySelectorAll('#listeDesNotes .note').forEach(function(el) {
+        let b = el.getBoundingClientRect();
+        let chevauche = !(b.right < boite.left || b.left > boite.right ||
+                          b.bottom < boite.top || b.top > boite.bottom);
+        if (chevauche) {
+          let idx = parseInt(el.getAttribute('data-index'));
+          if (!isNaN(idx)) nouvelles.push(idx);
+        }
+      });
+      notesSelectionnees = nouvelles;
+      majSurbrillanceSelection();
+    }
+
     let zonePourPan = document.getElementById('zoneDeplacement');
     if (zonePourPan) {
       zonePourPan.addEventListener('mousedown', demarrerPan);
       zonePourPan.addEventListener('touchstart', demarrerPan, { passive: false });
+      // Le tracé du rectangle de sélection écoute aussi le fond
+      zonePourPan.addEventListener('mousedown', demarrerSelectionRect);
+      zonePourPan.addEventListener('touchstart', demarrerSelectionRect, { passive: false });
 
       // ----- ZOOM AU PAVÉ TACTILE (pincement à deux doigts) -----
       // Le navigateur traduit le pincement en "molette + Ctrl". On capte ça
@@ -1318,6 +1517,12 @@
     window.addEventListener('mouseup', terminerPan);
     window.addEventListener('touchend', terminerPan);
     window.addEventListener('touchcancel', terminerPan);
+    // Tracé du rectangle de sélection
+    window.addEventListener('mousemove', deplacerSelectionRect);
+    window.addEventListener('touchmove', deplacerSelectionRect, { passive: false });
+    window.addEventListener('mouseup', terminerSelectionRect);
+    window.addEventListener('touchend', terminerSelectionRect);
+    window.addEventListener('touchcancel', terminerSelectionRect);
     // Si la fenêtre change de taille, on re-cale le canevas proprement
     window.addEventListener('resize', appliquerZoom);
 
