@@ -340,6 +340,46 @@
     .toast-erreur   { background: #c62828; }
     .toast-attention{ background: #ef6c00; }
 
+    /* ----- Témoin "enregistré" ----- */
+    #indicateurSauvegarde {
+      font-size: 13px;
+      color: #2e7d32;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      margin-left: 8px;
+    }
+    #indicateurSauvegarde.indicateur-actif { opacity: 1; }
+
+    /* ----- Bouton "couleur" d'une note ----- */
+    .button-couleur { background: #f4b740; }
+    .button-couleur:hover { background: #e0a52f; }
+
+    /* ----- Palette de couleurs ----- */
+    #paletteCouleurs {
+      position: fixed;
+      display: none;
+      gap: 6px;
+      padding: 8px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      z-index: 100001;
+    }
+    #paletteCouleurs .pastille {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid #aaa;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #888;
+    }
+    #paletteCouleurs .pastille:hover { transform: scale(1.15); border-color: #555; }
+
     /* ----- Fenêtre de partage (lien à copier) ----- */
     #modalPartage {
       position: fixed;
@@ -484,7 +524,7 @@
 
   <h1 id="titrePrincipal" contenteditable="true" spellcheck="false" title="Clique pour modifier le titre">Mes notes</h1>
   <p>Écris une idée par note. Garde-les courtes !</p>
-  <p id="compteurNotes">Notes : 0</p>
+  <p id="compteurNotes">Notes : 0 <span id="indicateurSauvegarde" title="Tes notes sont enregistrées dans le navigateur"></span></p>
 
   <!-- Barre d'onglets : chaque onglet a son propre jeu de notes -->
   <div id="barreOnglets"></div>
@@ -550,6 +590,9 @@
        glisser des notes et on les lâche dessus pour les supprimer. -->
   <div id="corbeille" aria-hidden="true" title="Glisse des notes ici pour les supprimer">🗑️</div>
 
+  <!-- Petite palette de couleurs (s'ouvre près du clic sur le bouton 🎨) -->
+  <div id="paletteCouleurs" aria-hidden="true"></div>
+
   <!-- Zone des petits messages (toasts) qui apparaissent puis disparaissent -->
   <div id="toasts" aria-live="polite"></div>
 
@@ -610,6 +653,18 @@
     let modeSelection = false;      // true quand le bouton "Sélection" est actif
     let notesSelectionnees = [];    // index des notes actuellement sélectionnées
     let rechercheActuelle = '';     // texte de recherche en cours (filtre d'affichage)
+    let avertissementStockageMontre = false;  // pour ne montrer l'alerte "stockage plein" qu'une fois
+    let paletteCouleurIndex = null; // index de la note dont on choisit la couleur
+    // Couleurs proposées pour les notes (val vide = blanc par défaut)
+    const COULEURS_NOTES = [
+      { nom: 'Blanc',  val: '' },
+      { nom: 'Jaune',  val: '#fff9c4' },
+      { nom: 'Bleu',   val: '#bbdefb' },
+      { nom: 'Vert',   val: '#c8e6c9' },
+      { nom: 'Rose',   val: '#f8bbd0' },
+      { nom: 'Orange', val: '#ffe0b2' },
+      { nom: 'Violet', val: '#e1bee7' }
+    ];
     let tracageRect = false;        // true pendant le tracé du rectangle de sélection
     let rectDepartX = 0, rectDepartY = 0;  // coin de départ du rectangle (coords écran)
     let rectABouge = false;         // true si la souris a vraiment bougé pendant le tracé
@@ -827,12 +882,93 @@
     }
 
     function sauvegarderNotesEnStockage() {
-      localStorage.setItem(CLE_STOCKAGE, JSON.stringify(mesNotes));
-      localStorage.setItem(CLE_STOCKAGE + "-positions", JSON.stringify(positionsNotes));
-      localStorage.setItem(CLE_STOCKAGE + "-liens", JSON.stringify(liens));
-      localStorage.setItem(CLE_STOCKAGE + "-reduites", JSON.stringify(notesReduites));
+      try {
+        localStorage.setItem(CLE_STOCKAGE, JSON.stringify(mesNotes));
+        localStorage.setItem(CLE_STOCKAGE + "-positions", JSON.stringify(positionsNotes));
+        localStorage.setItem(CLE_STOCKAGE + "-liens", JSON.stringify(liens));
+        localStorage.setItem(CLE_STOCKAGE + "-reduites", JSON.stringify(notesReduites));
+      } catch (e) {
+        // Quota dépassé (souvent des images trop lourdes) : on prévient l'utilisateur.
+        afficherToast("⚠️ Stockage du navigateur plein : ta dernière modification n'a peut-être PAS été enregistrée. Télécharge tes notes pour ne rien perdre, et évite les grosses images.", 'erreur', 9000);
+      }
+      indiquerSauvegarde();          // témoin "✓ Enregistré"
+      verifierEspaceStockage();      // avertit si on approche de la limite
       // … et on met à jour le fichier (de façon différée, voir ci-dessous).
       planifierSauvegardeFichier();
+    }
+
+    // Témoin discret confirmant la sauvegarde dans le navigateur.
+    let minuteurIndicateur = null;
+    function indiquerSauvegarde() {
+      let el = document.getElementById('indicateurSauvegarde');
+      if (!el) return;
+      el.textContent = '✓ Enregistré';
+      el.classList.add('indicateur-actif');
+      if (minuteurIndicateur) clearTimeout(minuteurIndicateur);
+      minuteurIndicateur = setTimeout(function() { el.classList.remove('indicateur-actif'); }, 1200);
+    }
+
+    // Estime l'espace utilisé dans le navigateur et prévient si on s'approche
+    // de la limite (~5 Mo), pour éviter de perdre des données silencieusement.
+    function verifierEspaceStockage() {
+      let total = 0;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          let cle = localStorage.key(i);
+          let val = localStorage.getItem(cle) || '';
+          total += (cle.length + val.length) * 2;   // ~2 octets par caractère (UTF-16)
+        }
+      } catch (e) { return; }
+      let limite = 5 * 1024 * 1024;   // ~5 Mo
+      if (total > limite * 0.8) {
+        if (!avertissementStockageMontre) {
+          avertissementStockageMontre = true;
+          let mo = Math.round(total / 1024 / 1024 * 10) / 10;
+          afficherToast("⚠️ Stockage du navigateur presque plein (" + mo + " Mo). Pense à télécharger tes notes en sauvegarde — au-delà, les images risquent de ne plus être enregistrées.", 'attention', 9000);
+        }
+      } else if (total < limite * 0.6) {
+        avertissementStockageMontre = false;   // repassé sous le seuil : on pourra re-prévenir plus tard
+      }
+    }
+
+    // ----- COULEUR D'UNE NOTE -----
+    // Ouvre la petite palette près du clic, pour choisir la couleur de la note.
+    function ouvrirPalette(index, event) {
+      event.stopPropagation();   // ne pas réduire/déplacer la note
+      paletteCouleurIndex = index;
+      let pal = document.getElementById('paletteCouleurs');
+      if (!pal) return;
+      pal.innerHTML = '';
+      COULEURS_NOTES.forEach(function(c) {
+        let d = document.createElement('div');
+        d.className = 'pastille';
+        d.title = c.nom;
+        d.style.background = c.val || '#ffffff';
+        if (!c.val) d.textContent = '∅';   // "aucune couleur" (blanc)
+        d.onclick = function(e) { e.stopPropagation(); choisirCouleurNote(c.val); };
+        pal.appendChild(d);
+      });
+      // On place la palette près du clic, sans déborder de l'écran.
+      let x = (event.touches ? event.touches[0].clientX : event.clientX);
+      let y = (event.touches ? event.touches[0].clientY : event.clientY);
+      pal.style.left = Math.min(x, window.innerWidth - 230) + 'px';
+      pal.style.top = Math.min(y, window.innerHeight - 60) + 'px';
+      pal.style.display = 'flex';
+    }
+
+    function choisirCouleurNote(val) {
+      if (paletteCouleurIndex !== null && mesNotes[paletteCouleurIndex]) {
+        mesNotes[paletteCouleurIndex].couleur = val;
+        sauvegarderNotesEnStockage();
+        afficherLesNotes();
+      }
+      fermerPalette();
+    }
+
+    function fermerPalette() {
+      paletteCouleurIndex = null;
+      let pal = document.getElementById('paletteCouleurs');
+      if (pal) pal.style.display = 'none';
     }
 
     // Met à jour le FICHIER de notes après chaque changement, mais de façon
@@ -1610,12 +1746,14 @@
         // Position de la note : LA MÊME en mode normal ET en mode édition, pour
         // que la note ne "saute" pas à l'origine (0,0) — et donc ne disparaisse
         // pas hors écran — quand on clique sur ✏️ pour la modifier.
+        // Couleur de fond éventuelle de la note (vide = blanc par défaut).
+        let fond = note.couleur ? (' background: ' + note.couleur + ';') : '';
         let posStyle = '';
         if (positionsNotes[i]) {
           let zStyle = positionsNotes[i].z ? ' z-index: ' + positionsNotes[i].z + ';' : '';
-          posStyle = 'style="left: ' + positionsNotes[i].x + 'px; top: ' + positionsNotes[i].y + 'px;' + zStyle + '"';
+          posStyle = 'style="left: ' + positionsNotes[i].x + 'px; top: ' + positionsNotes[i].y + 'px;' + zStyle + fond + '"';
         } else {
-          posStyle = 'style="left: ' + positionPile.x + 'px; top: ' + positionPile.y + 'px;"';
+          posStyle = 'style="left: ' + positionPile.x + 'px; top: ' + positionPile.y + 'px;' + fond + '"';
         }
 
         if (i === indexEnEdition) {
@@ -1655,6 +1793,7 @@
               '</div>' +
               '<div class="note-actions">' +
                 '<button class="button-action button-edit" onclick="demarrerModification(' + i + ', event)">✏️</button>' +
+                '<button class="button-action button-couleur" onclick="ouvrirPalette(' + i + ', event)" title="Couleur de la note">🎨</button>' +
                 '<button class="button-action button-delete" onclick="supprimerNote(' + i + ', event)">❌</button>' +
               '</div>' +
               '<button class="button-image" onclick="importerImages(' + i + ', event)" title="Ajouter une ou des images">' + iconePaysage + '</button>' +
@@ -2243,6 +2382,14 @@
       if (event.target.closest('#boutonSupprimerLiens')) return;
       quitterModeSupprimerLiens();
       dessinerLiens();
+    });
+
+    // Un clic en dehors de la palette de couleurs la referme.
+    document.addEventListener('click', function(event) {
+      let pal = document.getElementById('paletteCouleurs');
+      if (!pal || pal.style.display === 'none') return;
+      if (event.target.closest('#paletteCouleurs')) return;  // clic DANS la palette
+      fermerPalette();
     });
 
     // ----- SE SOUVENIR DU FICHIER ENTRE DEUX OUVERTURES -----
