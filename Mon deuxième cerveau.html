@@ -293,6 +293,58 @@
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
     }
 
+    /* ----- Barre d'onglets ----- */
+    #barreOnglets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .onglet {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #e8e4da;
+      color: #2c2c2a;
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .onglet:hover { background: #ded9cc; }
+    .onglet-actif {
+      background: #1e88e5;
+      color: #fff;
+      border-color: #1565c0;
+      font-weight: bold;
+    }
+    .onglet-fermer {
+      font-weight: bold;
+      opacity: 0.7;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    .onglet-fermer:hover { opacity: 1; background: rgba(0,0,0,0.15); }
+    #ajouterOnglet {
+      padding: 6px 12px;
+      font-size: 16px;
+      line-height: 1;
+      background: #2e8b57;
+    }
+    /* Champ de renommage d'un onglet (compact, à l'intérieur de l'onglet) */
+    input.onglet-edit {
+      width: auto;
+      min-width: 80px;
+      margin: 0;
+      padding: 2px 6px;
+      font-size: 14px;
+      border: 1px solid #1565c0;
+      border-radius: 6px;
+    }
+
     /* ----- Panneau de saisie rétractable ----- */
     /* Le panneau qui contient le titre, la saisie et tous les boutons.
        On lui ajoute une transition pour qu'il glisse en douceur. */
@@ -339,6 +391,9 @@
   <h1>Mes notes</h1>
   <p>Écris une idée par note. Garde-les courtes !</p>
   <p id="compteurNotes">Notes : 0</p>
+
+  <!-- Barre d'onglets : chaque onglet a son propre jeu de notes -->
+  <div id="barreOnglets"></div>
   <!-- La zone pour écrire une nouvelle note -->
   <!--
     Chaque "id" est une ÉTIQUETTE. Elle sert au cerveau (le JS)
@@ -416,7 +471,17 @@
       (window.__NOTES_PARTAGEES__ && window.__NOTES_PARTAGEES__.id)
         ? ("-" + window.__NOTES_PARTAGEES__.id)
         : "";
-    const CLE_STOCKAGE = "mon-deuxieme-cerveau-notes" + SUFFIXE_PARTAGE;
+    // Clés de stockage. Elles deviennent dépendantes de l'ONGLET actif :
+    // chaque onglet a son propre suffixe (vide pour le 1er onglet, qui réutilise
+    // donc les notes déjà enregistrées). appliquerClesOnglet() les recalcule.
+    let SUFFIXE_ONGLET = "";   // suffixe de l'onglet actuellement actif
+    let CLE_STOCKAGE = "mon-deuxieme-cerveau-notes" + SUFFIXE_PARTAGE;
+    // Clés pour la liste des onglets et l'onglet actif (communes à tous les onglets)
+    const CLE_ONGLETS = "mon-deuxieme-cerveau-onglets" + SUFFIXE_PARTAGE;
+    const CLE_ONGLET_ACTIF = "mon-deuxieme-cerveau-onglet-actif" + SUFFIXE_PARTAGE;
+    let onglets = [];          // [{ id, nom, cle }]  (cle = suffixe de stockage)
+    let ongletActifId = null;
+    let ongletEnEdition = null; // id de l'onglet dont on modifie le nom (champ éditable)
 
     // Une VARIABLE, c'est une boîte avec une étiquette dans laquelle
     // on range quelque chose. Ici, une boîte qui contiendra TOUTES
@@ -451,8 +516,8 @@
     let dragStartX = 0;  // Position initiale du drag
     let dragStartY = 0;
     let tailOffset = 20; // pixels à ajouter à la largeur de la ligne (queue)
-    const CLE_ZOOM = "mon-deuxieme-cerveau-zoom" + SUFFIXE_PARTAGE;
-    const CLE_PAN = "mon-deuxieme-cerveau-pan" + SUFFIXE_PARTAGE;
+    let CLE_ZOOM = "mon-deuxieme-cerveau-zoom" + SUFFIXE_PARTAGE;
+    let CLE_PAN = "mon-deuxieme-cerveau-pan" + SUFFIXE_PARTAGE;
     const ZOOM_MIN = 0.1;   // dézoom maximum (10%)
     const ZOOM_MAX = 2;     // zoom maximum (200%) : on peut aussi grossir
     const CANEVAS_FACTEUR = 2;  // taille du canevas (2 = deux fois plus grand dans toutes les directions)
@@ -852,22 +917,168 @@
       });
     }
 
+    // ====================== ONGLETS (jeux de notes séparés) ======================
+    // Recalcule les clés de stockage selon l'onglet actif. Le 1er onglet utilise
+    // un suffixe vide : il réutilise donc les notes déjà enregistrées.
+    function appliquerClesOnglet() {
+      let tab = onglets.find(function(o) { return o.id === ongletActifId; }) || onglets[0];
+      SUFFIXE_ONGLET = tab ? tab.cle : "";
+      CLE_STOCKAGE = "mon-deuxieme-cerveau-notes" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
+      CLE_ZOOM = "mon-deuxieme-cerveau-zoom" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
+      CLE_PAN = "mon-deuxieme-cerveau-pan" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
+    }
+
+    // Charge la liste des onglets (ou en crée un par défaut au 1er lancement).
+    function chargerOnglets() {
+      try { onglets = JSON.parse(localStorage.getItem(CLE_ONGLETS)); } catch (e) { onglets = null; }
+      if (!Array.isArray(onglets) || onglets.length === 0) {
+        // 1er onglet : suffixe vide => il récupère les notes déjà existantes.
+        onglets = [{ id: 'principal', nom: 'Notes 1', cle: '' }];
+      }
+      ongletActifId = localStorage.getItem(CLE_ONGLET_ACTIF);
+      if (!onglets.some(function(o) { return o.id === ongletActifId; })) {
+        ongletActifId = onglets[0].id;
+      }
+      appliquerClesOnglet();
+    }
+
+    function sauvegarderOnglets() {
+      localStorage.setItem(CLE_ONGLETS, JSON.stringify(onglets));
+      localStorage.setItem(CLE_ONGLET_ACTIF, ongletActifId);
+    }
+
+    // Recharge en mémoire les notes de l'onglet actif et redessine tout.
+    function chargerEtAfficherOngletActif() {
+      // On repart d'un état vierge avant de charger l'onglet
+      mesNotes = []; positionsNotes = {}; liens = []; notesReduites = {};
+      indexEnEdition = null;
+      notesSelectionnees = [];
+      zoomNotes = 1; panX = 0; panY = 0;
+      chargerNotesDepuisStockage();
+      recentrerNotesAuCentre(false);
+      afficherLesNotes();
+      let z = parseFloat(localStorage.getItem(CLE_ZOOM));
+      if (!isNaN(z)) zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+      try {
+        let p = JSON.parse(localStorage.getItem(CLE_PAN));
+        if (p) { panX = p.x || 0; panY = p.y || 0; }
+      } catch (e) {}
+      appliquerZoom();
+      ajusterHauteurZoneDeplacement();
+    }
+
+    // Affiche la barre d'onglets (boutons + bouton "＋").
+    function afficherBarreOnglets() {
+      let barre = document.getElementById('barreOnglets');
+      if (!barre) return;
+      barre.innerHTML = '';
+      onglets.forEach(function(o) {
+        let div = document.createElement('div');
+        div.className = 'onglet' + (o.id === ongletActifId ? ' onglet-actif' : '');
+
+        // Onglet en cours de renommage : on affiche un champ éditable.
+        if (o.id === ongletEnEdition) {
+          let input = document.createElement('input');
+          input.className = 'onglet-edit';
+          input.type = 'text';
+          input.value = o.nom;
+          input.onclick = function(e) { e.stopPropagation(); };
+          input.onkeydown = function(e) {
+            if (e.key === 'Enter') { validerRenommageOnglet(o.id, input.value); }
+            else if (e.key === 'Escape') { ongletEnEdition = null; afficherBarreOnglets(); }
+          };
+          input.onblur = function() { validerRenommageOnglet(o.id, input.value); };
+          div.appendChild(input);
+          barre.appendChild(div);
+          // Sélectionne le texte pour pouvoir le remplacer tout de suite
+          setTimeout(function() { input.focus(); input.select(); }, 0);
+          return;
+        }
+
+        div.title = 'Cliquer pour ouvrir • double-clic pour renommer';
+        div.appendChild(document.createTextNode(o.nom));
+        div.onclick = function() { changerOnglet(o.id); };
+        div.ondblclick = function(e) { demarrerRenommageOnglet(o.id, e); };
+        if (onglets.length > 1) {
+          let x = document.createElement('span');
+          x.className = 'onglet-fermer';
+          x.textContent = '×';
+          x.title = 'Supprimer cet onglet';
+          x.onclick = function(e) { supprimerOnglet(o.id, e); };
+          div.appendChild(x);
+        }
+        barre.appendChild(div);
+      });
+      let plus = document.createElement('button');
+      plus.id = 'ajouterOnglet';
+      plus.textContent = '＋';
+      plus.title = 'Nouvel onglet';
+      plus.onclick = ajouterOnglet;
+      barre.appendChild(plus);
+    }
+
+    function changerOnglet(id) {
+      if (id === ongletActifId) return;
+      ongletActifId = id;          // les données de l'onglet quitté sont déjà sauvegardées au fil de l'eau
+      appliquerClesOnglet();
+      sauvegarderOnglets();
+      chargerEtAfficherOngletActif();
+      afficherBarreOnglets();
+    }
+
+    function ajouterOnglet() {
+      let id = 'o' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
+      onglets.push({ id: id, nom: 'Notes ' + (onglets.length + 1), cle: '-onglet-' + id });
+      ongletActifId = id;
+      appliquerClesOnglet();
+      sauvegarderOnglets();
+      chargerEtAfficherOngletActif();   // nouvel onglet = vide
+      afficherBarreOnglets();
+    }
+
+    // Passe l'onglet en mode édition (champ texte modifiable sur place).
+    function demarrerRenommageOnglet(id, event) {
+      if (event) event.stopPropagation();
+      ongletEnEdition = id;
+      afficherBarreOnglets();
+    }
+
+    // Valide le nouveau nom (ignore si vide) et sort du mode édition.
+    function validerRenommageOnglet(id, valeur) {
+      if (ongletEnEdition !== id) return;   // évite un double appel (Entrée + blur)
+      ongletEnEdition = null;
+      let tab = onglets.find(function(o) { return o.id === id; });
+      if (tab && valeur && valeur.trim()) {
+        tab.nom = valeur.trim();
+        sauvegarderOnglets();
+      }
+      afficherBarreOnglets();
+    }
+
+    function supprimerOnglet(id, event) {
+      if (event) event.stopPropagation();
+      if (onglets.length <= 1) { alert("Tu ne peux pas supprimer le dernier onglet."); return; }
+      let tab = onglets.find(function(o) { return o.id === id; });
+      if (!tab) return;
+      if (!confirm('Supprimer l\'onglet « ' + tab.nom + ' » et toutes ses notes ?')) return;
+      // Effacer toutes les données de cet onglet
+      let base = "mon-deuxieme-cerveau-notes" + SUFFIXE_PARTAGE + tab.cle;
+      ['', '-positions', '-liens', '-reduites'].forEach(function(s) { localStorage.removeItem(base + s); });
+      localStorage.removeItem("mon-deuxieme-cerveau-zoom" + SUFFIXE_PARTAGE + tab.cle);
+      localStorage.removeItem("mon-deuxieme-cerveau-pan" + SUFFIXE_PARTAGE + tab.cle);
+      onglets = onglets.filter(function(o) { return o.id !== id; });
+      if (ongletActifId === id) ongletActifId = onglets[0].id;
+      appliquerClesOnglet();
+      sauvegarderOnglets();
+      chargerEtAfficherOngletActif();
+      afficherBarreOnglets();
+    }
+    // ============================================================================
+
     installerNotesPartageesUneFois();   // 1re ouverture d'un fichier partagé : on sème les notes
-    chargerNotesDepuisStockage();
-    // On NE recentre plus les notes à chaque ouverture : elles gardent
-    // la position où on les a laissées. On ne place au centre que si
-    // aucune position n'a encore été enregistrée (toute 1re ouverture).
-    recentrerNotesAuCentre(false);
-    afficherLesNotes();
-    // On retrouve le niveau de zoom et le déplacement de la dernière fois
-    let zoomSauvegarde = parseFloat(localStorage.getItem(CLE_ZOOM));
-    if (!isNaN(zoomSauvegarde)) zoomNotes = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomSauvegarde));
-    try {
-      let panSauvegarde = JSON.parse(localStorage.getItem(CLE_PAN));
-      if (panSauvegarde) { panX = panSauvegarde.x || 0; panY = panSauvegarde.y || 0; }
-    } catch (e) {}
-    appliquerZoom();
-    ajusterHauteurZoneDeplacement();
+    chargerOnglets();                   // détermine l'onglet actif et les clés de stockage
+    afficherBarreOnglets();
+    chargerEtAfficherOngletActif();     // charge et affiche les notes de l'onglet actif
     // Démarrer l'auto-téléchargement toutes les 10 minutes (600000 ms)
     var autoDownloadInterval = setInterval(function() { telechargerNotes(true); }, 10 * 60 * 1000);
 
