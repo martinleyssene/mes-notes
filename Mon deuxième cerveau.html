@@ -380,14 +380,14 @@
     /* Le panneau qui contient le titre, la saisie et tous les boutons.
        On lui ajoute une transition pour qu'il glisse en douceur. */
     #panneauSaisie {
-      transition: transform 0.35s ease, opacity 0.35s ease;
-      transform-origin: left center;
+      transition: opacity 0.3s ease;
       padding-top: 40px;   /* laisse la place au bouton "Masquer" fixé en haut */
     }
-    /* Quand le <body> a la classe "panneau-masque", le panneau glisse vers
-       la gauche jusqu'à disparaître complètement de l'écran. */
+    /* Quand le <body> a la classe "panneau-masque", le panneau (titre + saisie)
+       disparaît en fondu. Les boutons d'action, eux, sont déplacés vers la barre
+       du haut (animation verticale gérée en JS). Le fondu évite que le glissement
+       du panneau interfère avec le mouvement vertical des boutons. */
     body.panneau-masque #panneauSaisie {
-      transform: translateX(-130%);
       opacity: 0;
       pointer-events: none;   /* on ne peut plus cliquer dessus quand il est caché */
     }
@@ -616,12 +616,12 @@
         // La zone des notes se cale sous la position FINALE des boutons.
         ajusterHauteurZoneDeplacement();
 
-        // Animation "FLIP" (uniquement en masquant) : les boutons MONTENT tout
-        // droit depuis leur ancienne hauteur jusqu'à la barre du haut. On
-        // n'anime QUE la verticale : l'alignement horizontal change (centré
-        // dans le panneau → à gauche dans la barre), donc animer l'horizontale
-        // donnerait un décalage trompeur.
-        if (avant && masque) {
+        // Animation "FLIP" dans les DEUX sens : les boutons glissent
+        // verticalement entre le panneau et la barre du haut (ils montent en
+        // masquant, descendent en affichant). On n'anime QUE la verticale :
+        // l'alignement horizontal change (centré dans le panneau → à gauche dans
+        // la barre), donc animer l'horizontale donnerait un décalage trompeur.
+        if (avant) {
           let apres = zoneBoutons.getBoundingClientRect();
           let dy = avant.top - apres.top;
           zoneBoutons.style.transition = 'none';
