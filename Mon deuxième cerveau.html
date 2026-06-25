@@ -273,6 +273,32 @@
       pointer-events: none;   /* il ne doit jamais intercepter les clics */
     }
 
+    /* ----- Corbeille (suppression par glisser-déposer) ----- */
+    #corbeille {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 64px;
+      height: 64px;
+      display: none;            /* affichée seulement quand des notes sont sélectionnées */
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      background: #fff;
+      border: 2px dashed #cc0000;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      z-index: 100000;
+      pointer-events: none;     /* détection par coordonnées, pas par clic */
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    /* Mise en évidence quand on survole la corbeille avec une note en main */
+    #corbeille.corbeille-survol {
+      background: #ffd9d9;
+      border-style: solid;
+      transform: scale(1.18);
+    }
+
     /* ----- Fenêtre de partage (lien à copier) ----- */
     #modalPartage {
       position: fixed;
@@ -444,6 +470,10 @@
   </div>
   <!-- Rectangle bleu tracé pendant la sélection multiple -->
   <div id="rectSelection" aria-hidden="true"></div>
+
+  <!-- Corbeille : apparaît quand des notes sont sélectionnées ; on y fait
+       glisser des notes et on les lâche dessus pour les supprimer. -->
+  <div id="corbeille" aria-hidden="true" title="Glisse des notes ici pour les supprimer">🗑️</div>
 
   <!-- Fenêtre de partage : affiche le lien de l'application à copier -->
   <div id="modalPartage" role="dialog" aria-modal="true">
@@ -852,6 +882,64 @@
         let el = document.querySelector('.note[data-index="' + i + '"]');
         if (el) el.classList.add('note-selectionnee');
       });
+      majAffichageCorbeille();
+    }
+
+    // ----- CORBEILLE (suppression par glisser-déposer) -----
+    // La corbeille n'apparaît QUE lorsqu'au moins une note est sélectionnée.
+    function majAffichageCorbeille() {
+      let corb = document.getElementById('corbeille');
+      if (!corb) return;
+      if (notesSelectionnees.length > 0) {
+        corb.style.display = 'flex';
+      } else {
+        corb.style.display = 'none';
+        corb.classList.remove('corbeille-survol');
+      }
+    }
+
+    function corbeilleEstVisible() {
+      let corb = document.getElementById('corbeille');
+      return corb && corb.style.display !== 'none';
+    }
+
+    // Le point (x, y) à l'écran est-il au-dessus de la corbeille ?
+    function pointeurSurCorbeille(x, y) {
+      let corb = document.getElementById('corbeille');
+      if (!corb || corb.style.display === 'none') return false;
+      let r = corb.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }
+
+    // Supprime plusieurs notes d'un coup (par leurs index), en recalculant
+    // proprement les positions, l'état réduit et les liens restants.
+    function supprimerNotesParIndices(indices) {
+      let aSupprimer = {};
+      indices.forEach(function(i) { aSupprimer[i] = true; });
+      let mapping = {};                 // ancien index -> nouvel index
+      let nouvellesNotes = [];
+      let nouvellesPositions = {};
+      let nouvellesReduites = {};
+      let n = 0;
+      for (let i = 0; i < mesNotes.length; i++) {
+        if (aSupprimer[i]) continue;    // note supprimée
+        mapping[i] = n;
+        nouvellesNotes.push(mesNotes[i]);
+        if (positionsNotes[i]) nouvellesPositions[n] = positionsNotes[i];
+        if (notesReduites[i]) nouvellesReduites[n] = notesReduites[i];
+        n++;
+      }
+      // On garde les liens dont les DEUX extrémités survivent, en les remappant.
+      let nouveauxLiens = [];
+      liens.forEach(function(l) {
+        if (mapping[l.a] !== undefined && mapping[l.b] !== undefined) {
+          nouveauxLiens.push({ a: mapping[l.a], b: mapping[l.b] });
+        }
+      });
+      mesNotes = nouvellesNotes;
+      positionsNotes = nouvellesPositions;
+      notesReduites = nouvellesReduites;
+      liens = nouveauxLiens;
     }
 
     // Dessine tous les traits reliant les notes, du centre de l'une au centre de l'autre.
@@ -1545,6 +1633,12 @@
       let clientY = event.touches ? event.touches[0].clientY : event.clientY;
       event.preventDefault();
       dragMoved = true;
+      // Met en évidence la corbeille quand on passe la note au-dessus.
+      if (corbeilleEstVisible()) {
+        let corb = document.getElementById('corbeille');
+        if (pointeurSurCorbeille(clientX, clientY)) corb.classList.add('corbeille-survol');
+        else corb.classList.remove('corbeille-survol');
+      }
       let zone = document.getElementById('listeDesNotes');
       let zoneRect = zone.getBoundingClientRect();
       // Déplacement GROUPÉ : on décale toutes les notes du groupe du même delta.
@@ -1574,6 +1668,50 @@
 
     function terminerDeplacement(event) {
       if (!noteEnDeplacement) return;
+
+      // Point où on a relâché (souris ou doigt).
+      let lacherX, lacherY;
+      if (event && event.changedTouches && event.changedTouches[0]) {
+        lacherX = event.changedTouches[0].clientX;
+        lacherY = event.changedTouches[0].clientY;
+      } else if (event) {
+        lacherX = event.clientX;
+        lacherY = event.clientY;
+      }
+
+      // Lâché AU-DESSUS de la corbeille → on DEMANDE confirmation avant de supprimer.
+      if (corbeilleEstVisible() && lacherX !== undefined && pointeurSurCorbeille(lacherX, lacherY)) {
+        let aSupprimer = deplacementGroupe
+          ? notesSelectionnees.slice()
+          : [parseInt(noteEnDeplacement.getAttribute('data-index'))];
+        let nb = aSupprimer.length;
+        let confirme = confirm(nb > 1
+          ? ('Supprimer ces ' + nb + ' notes ?')
+          : 'Supprimer cette note ?');
+        // Fin du déplacement : on réinitialise l'état dans TOUS les cas.
+        noteEnDeplacement.classList.remove('dragging');
+        noteEnDeplacement = null;
+        indexEnCoursDeDeplacement = null;
+        dragMoved = false;
+        deplacementGroupe = false;
+        groupeDepart = [];
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+        document.body.style.msUserSelect = '';
+        document.body.removeEventListener('selectstart', preventSelect);
+        let corb = document.getElementById('corbeille');
+        if (corb) corb.classList.remove('corbeille-survol');
+        if (confirme) {
+          supprimerNotesParIndices(aSupprimer);
+          notesSelectionnees = [];
+          indexEnEdition = null;
+          sauvegarderNotesEnStockage();
+        }
+        // Si annulé : on ne supprime rien et les notes reviennent à leur place.
+        afficherLesNotes();
+        return;
+      }
+
       noteEnDeplacement.classList.remove('dragging');
       // Masquer la ligne limite à la fin du déplacement (avec animation)
       var ligneFin = document.getElementById('zoneLimite');
@@ -1705,6 +1843,11 @@
         r.style.height = '0px';
         r.style.display = 'block';
       }
+      // Empêche le texte des boutons/libellés de se surligner pendant le tracé.
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      document.body.style.msUserSelect = 'none';
+      document.body.addEventListener('selectstart', preventSelect);
       event.preventDefault();
     }
 
@@ -1727,6 +1870,11 @@
     function terminerSelectionRect() {
       if (!tracageRect) return;
       tracageRect = false;
+      // On réautorise la sélection de texte (mise en place dans demarrerSelectionRect).
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+      document.body.style.msUserSelect = '';
+      document.body.removeEventListener('selectstart', preventSelect);
       let r = document.getElementById('rectSelection');
       let boite = r ? r.getBoundingClientRect() : null;
       if (r) r.style.display = 'none';
