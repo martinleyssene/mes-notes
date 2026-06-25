@@ -1655,11 +1655,15 @@
       });
       // Dessiner les traits qui relient les notes
       dessinerLiens();
-      // Réappliquer la surbrillance des notes sélectionnées (le rendu a recréé
-      // les éléments, donc les contours bleus doivent être remis).
-      majSurbrillanceSelection();
-      // Réappliquer la recherche en cours (mêmes raisons).
-      appliquerRecherche();
+      // Surbrillance (sélection) et recherche : purement cosmétiques. On les
+      // protège pour qu'un éventuel souci ici n'empêche JAMAIS l'affichage des
+      // notes ni la suite du démarrage (zoom/position de la vue).
+      try {
+        majSurbrillanceSelection();
+        appliquerRecherche();
+      } catch (e) {
+        console.error('Surbrillance/recherche :', e);
+      }
     }
 
     // ----- RECHERCHE DANS LES NOTES -----
