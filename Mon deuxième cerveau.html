@@ -609,6 +609,7 @@
     // ----- SÉLECTION MULTIPLE (rectangle au cliquer-glisser) -----
     let modeSelection = false;      // true quand le bouton "Sélection" est actif
     let notesSelectionnees = [];    // index des notes actuellement sélectionnées
+    let rechercheActuelle = '';     // texte de recherche en cours (filtre d'affichage)
     let tracageRect = false;        // true pendant le tracé du rectangle de sélection
     let rectDepartX = 0, rectDepartY = 0;  // coin de départ du rectangle (coords écran)
     let rectABouge = false;         // true si la souris a vraiment bougé pendant le tracé
@@ -1664,7 +1665,8 @@
     // ----- RECHERCHE DANS LES NOTES -----
     // Surligne les notes dont le titre/contenu contient le texte cherché et
     // atténue les autres. Recherche vide = tout redevient normal.
-    let rechercheActuelle = '';
+    // (La variable rechercheActuelle est déclarée tout en haut, car
+    //  appliquerRecherche est appelée dès le démarrage par afficherLesNotes.)
     function surRecherche(valeur) {
       rechercheActuelle = valeur || '';
       appliquerRecherche();
