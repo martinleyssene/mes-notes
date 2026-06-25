@@ -266,6 +266,10 @@
     /* ----- Sélection multiple ----- */
     /* Note actuellement sélectionnée (entourée en bleu) */
     .note.note-selectionnee { outline: 3px solid #1e88e5; outline-offset: 2px; }
+
+    /* ----- Recherche ----- */
+    .note.note-resultat { outline: 3px solid #f4b740; outline-offset: 2px; }  /* note trouvée */
+    .note.note-attenue  { opacity: 0.25; }                                    /* note non concernée */
     /* En mode sélection, le curseur sur le fond devient une croix */
     body.mode-selection #zoneDeplacement { cursor: crosshair; }
     /* Le rectangle bleu tracé pendant la sélection */
@@ -484,6 +488,12 @@
 
   <!-- Barre d'onglets : chaque onglet a son propre jeu de notes -->
   <div id="barreOnglets"></div>
+
+  <!-- Recherche : surligne les notes correspondantes et atténue les autres -->
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <input id="champRecherche" type="search" placeholder="🔎 Rechercher dans les notes…" oninput="surRecherche(this.value)" style="margin: 6px 0;">
+    <span id="rechercheInfo" style="font-size: 13px; color: #777; white-space: nowrap;"></span>
+  </div>
   <!-- La zone pour écrire une nouvelle note -->
   <!--
     Chaque "id" est une ÉTIQUETTE. Elle sert au cerveau (le JS)
@@ -1647,6 +1657,36 @@
       // Réappliquer la surbrillance des notes sélectionnées (le rendu a recréé
       // les éléments, donc les contours bleus doivent être remis).
       majSurbrillanceSelection();
+      // Réappliquer la recherche en cours (mêmes raisons).
+      appliquerRecherche();
+    }
+
+    // ----- RECHERCHE DANS LES NOTES -----
+    // Surligne les notes dont le titre/contenu contient le texte cherché et
+    // atténue les autres. Recherche vide = tout redevient normal.
+    let rechercheActuelle = '';
+    function surRecherche(valeur) {
+      rechercheActuelle = valeur || '';
+      appliquerRecherche();
+    }
+    function appliquerRecherche() {
+      let zone = document.getElementById('listeDesNotes');
+      if (!zone) return;
+      zone.querySelectorAll('.note').forEach(function(el) {
+        el.classList.remove('note-resultat', 'note-attenue');
+      });
+      let info = document.getElementById('rechercheInfo');
+      let q = rechercheActuelle.trim().toLowerCase();
+      if (q === '') { if (info) info.textContent = ''; return; }
+      let nb = 0;
+      for (let i = 0; i < mesNotes.length; i++) {
+        let el = zone.querySelector('.note[data-index="' + i + '"]');
+        if (!el) continue;
+        let texte = ((mesNotes[i].titre || '') + ' ' + (mesNotes[i].contenu || '')).toLowerCase();
+        if (texte.indexOf(q) !== -1) { el.classList.add('note-resultat'); nb++; }
+        else { el.classList.add('note-attenue'); }
+      }
+      if (info) info.textContent = nb + ' résultat' + (nb > 1 ? 's' : '');
     }
 
     // ----- IMPORTER UNE OU PLUSIEURS IMAGES DANS UNE NOTE -----
