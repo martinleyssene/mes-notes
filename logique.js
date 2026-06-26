@@ -50,3 +50,22 @@ function ecrireJSON(cle, valeur) {
   // de la gérer (voir sauvegarderNotesEnStockage).
   localStorage.setItem(cle, JSON.stringify(valeur));
 }
+
+// --- EXPORT ----------------------------------------------------------------
+// Construit l'objet exporté dans le fichier .json (format, titre, notes,
+// positions, liens, état réduit). Fonction PURE : elle ne lit rien dans le
+// DOM ni le stockage, elle assemble seulement les données qu'on lui donne.
+// C'est ce qui la rend facile à tester (voir tests.html).
+function construireExportNotes(donnees) {
+  donnees = donnees || {};
+  return {
+    format: "mon-deuxieme-cerveau",
+    version: 1,
+    titre: (donnees.titre && donnees.titre.trim()) || 'Mes notes',  // jamais vide
+    description: donnees.description ? donnees.description.trim() : '',
+    notes: donnees.notes || [],
+    positions: donnees.positions || {},
+    liens: donnees.liens || [],
+    reduites: donnees.reduites || {}
+  };
+}

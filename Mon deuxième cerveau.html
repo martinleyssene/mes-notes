@@ -599,7 +599,10 @@
   <!-- Boutons pour gérer les fichiers -->
     <div id="zoneBoutons" style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; gap: 10px; flex-wrap: nowrap; align-items: center; justify-content: center;">
     <button onclick="chargerNotes()" style="background: #ff9900;">📤 Charger des notes</button>
-    <button id="telechargerUneFois" onclick="telechargerNotes()" style="background: #0066cc;">Télécharger</button>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <button id="telechargerUneFois" onclick="telechargerNotes()" style="background: #0066cc;">Télécharger</button>
+      <button id="telechargerSous" onclick="telechargerNotesSous()" title="Choisir un nouvel emplacement (en ligne, Chrome/Edge)" style="background: #004a99;">Télécharger sous…</button>
+    </div>
     <button id="boutonPartager" onclick="partagerNotes()" title="Affiche le lien de l'application à copier et envoyer à qui tu veux" style="background: #009688;">🔗 Partager</button>
     <button id="boutonRelier" onclick="basculerModeRelier()" style="background: #6b3fa0;">🔗 Relier</button>
     <button id="boutonSupprimerLiens" onclick="basculerModeSupprimerLiens(event)" style="background: #888;">🗑️ Supprimer liens</button>
@@ -2632,7 +2635,9 @@
 
     // "estAuto" = true quand c'est la sauvegarde automatique (toutes les 10 min).
     // Dans ce cas on ne dérange JAMAIS l'utilisateur avec une fenêtre.
-    async function telechargerNotes(estAuto) {
+    // forcerChoixEmplacement = true → on rouvre la fenêtre "Enregistrer sous"
+    // pour choisir un NOUVEL emplacement, qui remplacera l'ancien lien.
+    async function telechargerNotes(estAuto, forcerChoixEmplacement) {
       // En sauvegarde automatique (silencieuse), on n'affiche pas l'indicateur
       // de chargement, pour ne pas le faire clignoter à chaque modification.
       const spinner = estAuto ? null : document.getElementById('spinner');
@@ -2646,25 +2651,26 @@
         let titrePrincipal = elTitre ? elTitre.textContent.trim() : '';
         let elDescription = document.getElementById('descriptionPrincipale');
         let descriptionPrincipale = elDescription ? elDescription.textContent.trim() : '';
-        let donneesExport = {
-          format: "mon-deuxieme-cerveau",
-          version: 1,
-          titre: titrePrincipal || 'Mes notes',
+        let donneesExport = construireExportNotes({
+          titre: titrePrincipal,
           description: descriptionPrincipale,
           notes: mesNotes,
           positions: positionsNotes,
           liens: liens,
           reduites: notesReduites
-        };
+        });
         let contenuJSON = JSON.stringify(donneesExport, null, 2);
 
         // CAS 1 : le navigateur sait écrire directement dans un fichier
         // (Chrome, Edge...). On réutilise toujours le MÊME fichier.
         if (window.showSaveFilePicker) {
           try {
-            // Si on ne connaît pas encore le fichier, on tente de le récupérer
-            // depuis la dernière fois (IndexedDB).
-            if (!fichierNotesEnregistre) {
+            // "Télécharger sous…" : on oublie l'emplacement actuel pour en
+            // rechoisir un nouveau juste après.
+            if (forcerChoixEmplacement) fichierNotesEnregistre = null;
+            // Si on ne connaît pas encore le fichier (et qu'on ne force pas un
+            // nouveau choix), on tente de le récupérer depuis la dernière fois.
+            if (!fichierNotesEnregistre && !forcerChoixEmplacement) {
               fichierNotesEnregistre = await recupererFichierMemorise();
             }
 
@@ -2726,6 +2732,20 @@
       } finally {
         if (spinner) spinner.style.display = 'none';
       }
+    }
+
+    // "Télécharger sous…" : choisir un NOUVEL emplacement pour le fichier de
+    // notes. Désormais, les enregistrements (manuels ET automatiques) iront là.
+    function telechargerNotesSous() {
+      // La fenêtre "Enregistrer sous" n'existe qu'en ligne avec Chrome/Edge.
+      // En local (file://) ou sur Safari/Firefox, on prévient et on retombe sur
+      // un téléchargement classique (vers le dossier de téléchargements).
+      if (!window.showSaveFilePicker || location.protocol === 'file:') {
+        afficherToast("ⓘ Choisir l'emplacement n'est possible que sur la version EN LIGNE avec Chrome ou Edge. Ici, le fichier part dans ton dossier de téléchargements habituel.", 'attention', 8000);
+        telechargerNotes(false, false);
+        return;
+      }
+      telechargerNotes(false, true);   // ouvre la fenêtre pour choisir où enregistrer
     }
 
     // Le contrôle manuel est désormais un bouton "Télécharger" unique

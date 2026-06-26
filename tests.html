@@ -114,6 +114,29 @@
       localStorage.removeItem(c);
     });
 
+    // --- construireExportNotes : contenu du fichier .json exporté ---
+    groupe('construireExportNotes()');
+    let exp = construireExportNotes({
+      titre: "  Mon projet  ", description: "  une idée  ",
+      notes: [{ titre: "n1" }], positions: { 0: { x: 1, y: 2 } },
+      liens: [[0, 1]], reduites: { 0: true }
+    });
+    verifier("marque le bon format", exp.format, "mon-deuxieme-cerveau");
+    verifier("indique la version 1", exp.version, 1);
+    verifier("nettoie (trim) le titre", exp.titre, "Mon projet");
+    verifier("nettoie (trim) la description", exp.description, "une idée");
+    verifier("conserve les notes", exp.notes, [{ titre: "n1" }]);
+    verifier("conserve les positions", exp.positions, { 0: { x: 1, y: 2 } });
+    verifier("conserve les liens", exp.liens, [[0, 1]]);
+    verifier("conserve l'état réduit", exp.reduites, { 0: true });
+
+    let expVide = construireExportNotes({});
+    verifier("titre vide → 'Mes notes' par défaut", expVide.titre, "Mes notes");
+    verifier("description absente → chaîne vide", expVide.description, "");
+    verifier("notes absentes → tableau vide", expVide.notes, []);
+    verifier("positions absentes → objet vide", expVide.positions, {});
+    verifier("appel sans argument ne plante pas", construireExportNotes().format, "mon-deuxieme-cerveau");
+
     // ====== Bilan ==========================================================
     let resume = document.getElementById('resume');
     let tousReussis = (reussis === total);
