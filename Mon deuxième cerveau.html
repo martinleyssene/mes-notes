@@ -370,13 +370,21 @@
     #paletteCouleurs {
       position: fixed;
       display: none;
-      gap: 6px;
-      padding: 8px;
+      flex-direction: column;   /* deux sections empilées : Fond puis Texte */
+      gap: 8px;
+      padding: 10px;
       background: #fff;
       border: 1px solid #ccc;
       border-radius: 10px;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
       z-index: 100001;
+    }
+    #paletteCouleurs .palette-label {
+      font-size: 11px; font-weight: 600; color: #666;
+      margin-bottom: 4px; letter-spacing: .02em;
+    }
+    #paletteCouleurs .palette-rangee {
+      display: flex; gap: 6px; align-items: center;
     }
     #paletteCouleurs .pastille {
       width: 24px;
@@ -663,7 +671,7 @@
     const CLE_ONGLETS = "mon-deuxieme-cerveau-onglets" + SUFFIXE_PARTAGE;
     const CLE_ONGLET_ACTIF = "mon-deuxieme-cerveau-onglet-actif" + SUFFIXE_PARTAGE;
     const CLE_TITRE = "mon-deuxieme-cerveau-titre" + SUFFIXE_PARTAGE;  // titre principal modifiable
-    const CLE_DESCRIPTION = "mon-deuxieme-cerveau-description" + SUFFIXE_PARTAGE;  // description modifiable
+    let CLE_DESCRIPTION = "mon-deuxieme-cerveau-description" + SUFFIXE_PARTAGE;  // description modifiable (propre à chaque onglet, recalculée par appliquerClesOnglet)
     let onglets = [];          // [{ id, nom, cle }]  (cle = suffixe de stockage)
     let ongletActifId = null;
     let ongletEnEdition = null; // id de l'onglet dont on modifie le nom (champ éditable)
@@ -697,6 +705,16 @@
       { nom: 'Rose',   val: '#f8bbd0' },
       { nom: 'Orange', val: '#ffe0b2' },
       { nom: 'Violet', val: '#e1bee7' }
+    ];
+    // Couleurs proposées pour le TEXTE de la note (val vide = couleur par défaut, foncée)
+    const COULEURS_TEXTE = [
+      { nom: 'Défaut', val: '' },
+      { nom: 'Noir',   val: '#000000' },
+      { nom: 'Gris',   val: '#666666' },
+      { nom: 'Rouge',  val: '#c62828' },
+      { nom: 'Bleu',   val: '#1565c0' },
+      { nom: 'Vert',   val: '#2e7d32' },
+      { nom: 'Blanc',  val: '#ffffff' }
     ];
     let tracageRect = false;        // true pendant le tracé du rectangle de sélection
     let rectDepartX = 0, rectDepartY = 0;  // coin de départ du rectangle (coords écran)
@@ -966,39 +984,68 @@
 
     // ----- COULEUR D'UNE NOTE -----
     // Ouvre la petite palette près du clic, pour choisir la couleur de la note.
+    // SÉCURITÉ : ne renvoie une couleur que si elle est inoffensive (les couleurs
+    // peuvent venir d'un fichier .json importé). Sinon, chaîne vide (= ignorée).
+    // Utilisée à la fois pour le fond et pour le texte (DRY).
+    function couleurValidee(c) {
+      return (c && /^(#[0-9a-fA-F]{3,8}|(rgb|hsl)a?\([0-9.,%\s/]+\)|[a-zA-Z]+)$/.test(c)) ? c : '';
+    }
+
+    // Construit une section de la palette (un titre + une rangée de pastilles +
+    // le sélecteur libre). 'type' vaut 'fond' ou 'texte'. Évite de dupliquer le
+    // code entre les deux sections (DRY).
+    function construireSectionCouleurs(titre, couleurs, type, valeurActuelle) {
+      let section = document.createElement('div');
+      section.className = 'palette-section';
+      let label = document.createElement('div');
+      label.className = 'palette-label';
+      label.textContent = titre;
+      section.appendChild(label);
+
+      let rangee = document.createElement('div');
+      rangee.className = 'palette-rangee';
+      couleurs.forEach(function(c) {
+        let d = document.createElement('div');
+        d.className = 'pastille';
+        d.title = c.nom;
+        if (type === 'texte') {
+          // Pastille "texte" : un A coloré sur fond clair (lisible même en blanc).
+          d.style.background = '#fafafa';
+          d.style.color = c.val || '#222';
+          d.style.fontWeight = '700';
+          d.textContent = 'A';
+        } else {
+          d.style.background = c.val || '#ffffff';
+          if (!c.val) d.textContent = '∅';   // "aucune couleur" (blanc)
+        }
+        d.onclick = function(e) { e.stopPropagation(); choisirCouleurNote(c.val, type); };
+        rangee.appendChild(d);
+      });
+
+      // Sélecteur de couleur LIBRE (toutes les couleurs) : sélecteur natif.
+      let perso = document.createElement('input');
+      perso.type = 'color';
+      perso.className = 'pastille-perso';
+      perso.title = 'Choisir n\'importe quelle couleur';
+      perso.value = /^#/.test(valeurActuelle || '') ? valeurActuelle : (type === 'texte' ? '#000000' : '#ffffff');
+      perso.onclick = function(e) { e.stopPropagation(); };   // ne pas refermer la palette
+      perso.onchange = function(e) { e.stopPropagation(); choisirCouleurNote(perso.value, type); };
+      rangee.appendChild(perso);
+
+      section.appendChild(rangee);
+      return section;
+    }
+
     function ouvrirPalette(index, event) {
       event.stopPropagation();   // ne pas réduire/déplacer la note
       paletteCouleurIndex = index;
       let pal = document.getElementById('paletteCouleurs');
       if (!pal) return;
       pal.innerHTML = '';
-      COULEURS_NOTES.forEach(function(c) {
-        let d = document.createElement('div');
-        d.className = 'pastille';
-        d.title = c.nom;
-        d.style.background = c.val || '#ffffff';
-        if (!c.val) d.textContent = '∅';   // "aucune couleur" (blanc)
-        d.onclick = function(e) { e.stopPropagation(); choisirCouleurNote(c.val); };
-        pal.appendChild(d);
-      });
-      // Sélecteur de couleur LIBRE (toutes les couleurs) : ouvre le sélecteur
-      // natif du navigateur (roue chromatique, curseurs, code hex…).
-      let perso = document.createElement('input');
-      perso.type = 'color';
-      perso.className = 'pastille-perso';
-      perso.title = 'Choisir n\'importe quelle couleur';
-      perso.value = (mesNotes[index] && /^#/.test(mesNotes[index].couleur || '')) ? mesNotes[index].couleur : '#ffffff';
-      perso.onclick = function(e) { e.stopPropagation(); };   // ne pas refermer la palette
-      perso.onchange = function(e) {
-        e.stopPropagation();
-        if (mesNotes[index]) {
-          mesNotes[index].couleur = perso.value;
-          sauvegarderNotesEnStockage();
-          afficherLesNotes();
-        }
-        fermerPalette();
-      };
-      pal.appendChild(perso);
+      let note = mesNotes[index] || {};
+      // Deux sections : couleur du FOND et couleur du TEXTE.
+      pal.appendChild(construireSectionCouleurs('Fond',  COULEURS_NOTES, 'fond',  note.couleur || ''));
+      pal.appendChild(construireSectionCouleurs('Texte', COULEURS_TEXTE, 'texte', note.couleurTexte || ''));
       // On affiche d'abord (pour pouvoir mesurer la palette), puis on la place
       // À DROITE de la note, centrée verticalement, avec un petit écart.
       pal.style.display = 'flex';
@@ -1026,9 +1073,11 @@
       }
     }
 
-    function choisirCouleurNote(val) {
+    // Applique la couleur choisie : 'type' vaut 'fond' (défaut) ou 'texte'.
+    function choisirCouleurNote(val, type) {
       if (paletteCouleurIndex !== null && mesNotes[paletteCouleurIndex]) {
-        mesNotes[paletteCouleurIndex].couleur = val;
+        if (type === 'texte') mesNotes[paletteCouleurIndex].couleurTexte = val;
+        else mesNotes[paletteCouleurIndex].couleur = val;
         sauvegarderNotesEnStockage();
         afficherLesNotes();
       }
@@ -1410,6 +1459,9 @@
       CLE_STOCKAGE = "mon-deuxieme-cerveau-notes" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
       CLE_ZOOM = "mon-deuxieme-cerveau-zoom" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
       CLE_PAN = "mon-deuxieme-cerveau-pan" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
+      // La description est propre à chaque onglet (le 1er onglet, suffixe vide,
+      // récupère donc la description déjà enregistrée — rétrocompatible).
+      CLE_DESCRIPTION = "mon-deuxieme-cerveau-description" + SUFFIXE_PARTAGE + SUFFIXE_ONGLET;
     }
 
     // Charge la liste des onglets (ou en crée un par défaut au 1er lancement).
@@ -1448,6 +1500,7 @@
         if (p) { panX = p.x || 0; panY = p.y || 0; }
       } catch (e) {}
       appliquerZoom();
+      chargerDescriptionDansChamp();   // chaque onglet a sa propre description
       ajusterHauteurZoneDeplacement();
     }
 
@@ -1578,12 +1631,21 @@
       h.addEventListener('input', ajusterHauteurZoneDeplacement);
     }
 
+    // Recharge le texte de la description depuis le stockage de l'onglet actif.
+    // Utilisée à l'init ET à chaque changement d'onglet (chaque onglet a la sienne).
+    function chargerDescriptionDansChamp() {
+      let p = document.getElementById('descriptionPrincipale');
+      if (!p) return;
+      let d = localStorage.getItem(CLE_DESCRIPTION);
+      // null = aucune description pour cet onglet => champ vide (l'invite réapparaît).
+      p.textContent = (d !== null) ? d : '';
+    }
+
     // Description modifiable : même principe que le titre.
     function initDescriptionPrincipale() {
       let p = document.getElementById('descriptionPrincipale');
       if (!p) return;
-      let d = localStorage.getItem(CLE_DESCRIPTION);
-      if (d !== null) p.textContent = d;   // on autorise une description vide
+      chargerDescriptionDansChamp();   // on autorise une description vide
       p.addEventListener('blur', function() {
         let v = p.textContent.trim();
         // Si l'utilisateur a tout effacé, on vide complètement l'élément pour que
@@ -1842,16 +1904,12 @@
         // Position de la note : LA MÊME en mode normal ET en mode édition, pour
         // que la note ne "saute" pas à l'origine (0,0) — et donc ne disparaisse
         // pas hors écran — quand on clique sur ✏️ pour la modifier.
-        // Couleur de fond éventuelle de la note (vide = blanc par défaut).
-        // SÉCURITÉ : la couleur peut venir d'un fichier .json importé (donc non
-        // fiable). On n'accepte QUE des valeurs de couleur inoffensives
-        // (#hex, rgb()/rgba(), hsl()/hsla(), ou un simple nom comme "red").
-        // Tout le reste est ignoré, pour empêcher une injection via l'attribut style.
-        let couleurSure = '';
-        if (note.couleur && /^(#[0-9a-fA-F]{3,8}|(rgb|hsl)a?\([0-9.,%\s/]+\)|[a-zA-Z]+)$/.test(note.couleur)) {
-          couleurSure = note.couleur;
-        }
-        let fond = couleurSure ? (' background: ' + couleurSure + ';') : '';
+        // Couleur de fond et de texte éventuelles (vides = valeurs par défaut).
+        // couleurValidee() écarte toute valeur dangereuse (sécurité : ces couleurs
+        // peuvent provenir d'un fichier .json importé).
+        let cFond  = couleurValidee(note.couleur);
+        let cTexte = couleurValidee(note.couleurTexte);
+        let fond = (cFond ? ' background: ' + cFond + ';' : '') + (cTexte ? ' color: ' + cTexte + ';' : '');
         let posStyle = '';
         if (positionsNotes[i]) {
           let zStyle = positionsNotes[i].z ? ' z-index: ' + positionsNotes[i].z + ';' : '';

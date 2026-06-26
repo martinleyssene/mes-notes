@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon deuxième cerveau — Atelier Voltaire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================================
+     MAQUETTE — Outil de prise de notes « Atelier Voltaire »
+     Direction : l'établi du sellier. Cuir, parchemin, laiton, point sellier.
+     ========================================================================= */
+  :root {
+    --cuir-noir:   #1E1409;   /* espresso profond — fond de l'atelier */
+    --cuir:        #7A4527;   /* cuir fauve */
+    --cuir-clair:  #A66A3D;
+    --parchemin:   #EFE6D2;   /* étiquette / papier */
+    --parchemin-2: #E4D7BC;
+    --laiton:      #C8A75C;   /* boucles, surpiqûres, œillets */
+    --laiton-clair:#E8CE8E;
+    --fil:         #DFCDA0;   /* fil de lin ciré */
+    --sang:        #6F2B2F;   /* sang-de-bœuf, accent */
+    --encre:       #2C1E12;   /* encre sur parchemin */
+
+    --ombre-cuir: 0 18px 40px -18px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--parchemin);
+    background-color: var(--cuir-noir);
+    /* Grain de cuir : dégradés profonds + reflet de surface bombée */
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(166,106,61,.22), transparent 60%),
+      radial-gradient(100% 120% at 110% 110%, rgba(0,0,0,.55), transparent 55%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.06'/%3E%3C/svg%3E");
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  /* ---------- En-tête : bandeau de cuir, titre marqué à chaud ------------- */
+  header {
+    position: relative;
+    padding: 26px 40px 22px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%),
+      linear-gradient(180deg, var(--cuir) 0%, #5E351E 100%);
+    border-bottom: 2px solid rgba(0,0,0,.45);
+    box-shadow: 0 14px 30px -14px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.08);
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    z-index: 30;
+  }
+
+  /* Conscho / monogramme en laiton */
+  .conscho {
+    flex: 0 0 auto;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background:
+      radial-gradient(circle at 32% 28%, var(--laiton-clair), var(--laiton) 45%, #8A6E2E 100%);
+    box-shadow:
+      inset 0 2px 3px rgba(255,255,255,.6),
+      inset 0 -4px 6px rgba(0,0,0,.4),
+      0 6px 14px -4px rgba(0,0,0,.7);
+    border: 1px solid rgba(0,0,0,.25);
+  }
+  .conscho span {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 30px;
+    color: #4A380F;
+    text-shadow: 0 1px 0 rgba(255,255,255,.35);
+  }
+
+  .titre-bloc { line-height: 1.05; }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: .42em;
+    text-transform: uppercase;
+    color: var(--laiton-clair);
+    font-weight: 600;
+    margin-bottom: 6px;
+    padding-left: 2px;
+  }
+
+  /* Titre embossé : marqué dans le cuir (texte en creux) */
+  h1#titre {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(30px, 4vw, 46px);
+    letter-spacing: .005em;
+    color: #4A2A16;
+    text-shadow:
+      0 1px 0 rgba(255,225,180,.18),
+      0 -1px 1px rgba(0,0,0,.55);
+    cursor: text; outline: none; border-radius: 4px;
+    display: inline-block;
+  }
+  h1#titre:focus { color: var(--parchemin); text-shadow: none; background: rgba(0,0,0,.25); padding: 0 6px; }
+
+  #description {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: rgba(239,230,210,.78);
+    margin-top: 4px;
+    cursor: text; outline: none; border-radius: 4px;
+    display: inline-block; width: fit-content;
+  }
+  #description:empty::before {
+    content: "Cliquez ici pour ajouter une description";
+    color: rgba(239,230,210,.4);
+  }
+  #description:focus { background: rgba(0,0,0,.2); padding: 0 6px; }
+
+  /* La barre d'outils, calée à droite de l'en-tête */
+  .outils { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px; font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--parchemin);
+    padding: 11px 18px;
+    border: 1px solid rgba(0,0,0,.4);
+    border-radius: 9px;
+    cursor: pointer;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.10), transparent 40%),
+      linear-gradient(180deg, #69402A, #4A2C1A);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 4px 10px -4px rgba(0,0,0,.6);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0,0,0,.5); }
+  .btn:focus-visible { outline: 2px solid var(--laiton-clair); outline-offset: 2px; }
+
+  /* Bouton principal : laiton */
+  .btn.laiton {
+    color: #3A2A0C;
+    background:
+      linear-gradient(180deg, var(--laiton-clair), var(--laiton) 55%, #9A7B33);
+    border-color: #6E5621;
+    text-shadow: 0 1px 0 rgba(255,255,255,.3);
+  }
+
+  /* ---------- L'atelier : la peau de cuir où l'on pose les étiquettes ----- */
+  #atelier {
+    position: absolute;
+    inset: 132px 0 0 0;
+    overflow: hidden;
+  }
+  /* Couture de bordure tout autour de la peau (point sellier) */
+  #atelier::before {
+    content: "";
+    position: absolute; inset: 18px;
+    border: 2px dashed rgba(200,167,92,.35);
+    border-radius: 14px;
+    pointer-events: none;
+  }
+
+  /* Fils de lin entre les étiquettes */
+  #fils { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+
+  /* ---------- Une étiquette de cuir, cousue main ------------------------- */
+  .etiquette {
+    position: absolute;
+    width: 232px;
+    min-height: 132px;
+    padding: 20px 20px 18px 30px;
+    border-radius: 12px;
+    color: var(--encre);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.28), transparent 26%),
+      linear-gradient(180deg, var(--parchemin), var(--parchemin-2));
+    box-shadow: var(--ombre-cuir);
+    cursor: grab;
+    z-index: 2;
+    transition: transform .14s ease, box-shadow .14s ease;
+    user-select: none;
+  }
+  .etiquette:hover { transform: translateY(-3px) rotate(-.4deg); box-shadow: 0 26px 50px -18px rgba(0,0,0,.75); }
+  .etiquette.drag { cursor: grabbing; transform: scale(1.03) rotate(-1deg); box-shadow: 0 34px 60px -16px rgba(0,0,0,.8); z-index: 50; }
+
+  /* Surpiqûre intérieure (le point sellier) */
+  .etiquette::before {
+    content: "";
+    position: absolute; inset: 7px;
+    border: 1.6px dashed rgba(122,69,39,.55);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  /* Œillet de laiton dans le coin */
+  .etiquette::after {
+    content: "";
+    position: absolute; top: 14px; left: 12px;
+    width: 13px; height: 13px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, var(--laiton-clair), var(--laiton) 50%, #7E6228 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.7), inset 0 -2px 3px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.4);
+  }
+
+  .etiquette h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600; font-size: 18px;
+    margin-bottom: 7px; line-height: 1.15;
+    outline: none;
+  }
+  .etiquette p {
+    font-size: 13.5px; line-height: 1.5;
+    color: rgba(44,30,18,.82);
+    outline: none;
+  }
+
+  /* Variantes de cuir teinté */
+  .etiquette.fauve { color: var(--parchemin);
+    background: linear-gradient(180deg, rgba(255,255,255,.14), transparent 26%), linear-gradient(180deg, var(--cuir-clair), var(--cuir)); }
+  .etiquette.fauve p { color: rgba(239,230,210,.85); }
+  .etiquette.fauve::before { border-color: rgba(232,206,142,.6); }
+
+  .etiquette.sang { color: var(--parchemin);
+    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 26%), linear-gradient(180deg, #8A3940, var(--sang)); }
+  .etiquette.sang p { color: rgba(239,230,210,.85); }
+  .etiquette.sang::before { border-color: rgba(232,206,142,.5); }
+
+  /* Petite étiquette d'attribut « cuir » sous chaque note */
+  .grain {
+    margin-top: 10px;
+    font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+    color: rgba(122,69,39,.6); font-weight: 600;
+  }
+  .fauve .grain, .sang .grain { color: rgba(232,206,142,.7); }
+
+  /* ---------- Coin atelier : signature + compteur ------------------------ */
+  .signature {
+    position: absolute; left: 30px; bottom: 22px; z-index: 5;
+    font-size: 11px; letter-spacing: .34em; text-transform: uppercase;
+    color: rgba(200,167,92,.55); font-weight: 600;
+    pointer-events: none;
+  }
+  .compteur {
+    position: absolute; right: 30px; bottom: 20px; z-index: 5;
+    font-family: 'Fraunces', serif; font-style: italic;
+    font-size: 14px; color: rgba(239,230,210,.5);
+    pointer-events: none;
+  }
+
+  /* Apparition douce au chargement */
+  @keyframes poser { from { opacity: 0; transform: translateY(14px) rotate(-1deg); } to { opacity: 1; } }
+  .etiquette { animation: poser .5s cubic-bezier(.2,.7,.2,1) backwards; }
+
+  /* Toast (langage de l'atelier) */
+  #toast {
+    position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(180deg, #4A2C1A, #2E1B10);
+    border: 1px solid var(--laiton); color: var(--parchemin);
+    padding: 12px 22px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    box-shadow: var(--ombre-cuir); opacity: 0; pointer-events: none;
+    transition: opacity .3s ease, transform .3s ease; z-index: 60;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="conscho"><span>V</span></div>
+    <div class="titre-bloc">
+      <div class="eyebrow">Groupe Voltaire · Atelier de sellerie</div>
+      <h1 id="titre" contenteditable="true" spellcheck="false" title="Cliquer pour modifier">Mon deuxième cerveau</h1>
+      <div id="description" contenteditable="true" spellcheck="false" title="Cliquer pour modifier">Chaque idée, une pièce de cuir. Taillez court, cousez droit.</div>
+    </div>
+
+    <div class="outils">
+      <button class="btn" onclick="relier()" id="btnRelier">🪡 Relier au fil</button>
+      <button class="btn laiton" onclick="ajouterEtiquette()">＋ Nouvelle étiquette</button>
+    </div>
+  </header>
+
+  <main id="atelier">
+    <svg id="fils"></svg>
+    <div class="signature">Cousu main · Point sellier</div>
+    <div class="compteur" id="compteur"></div>
+  </main>
+
+  <div id="toast"></div>
+
+<script>
+  // ==========================================================================
+  // Maquette interactive — démonstration du look « Atelier Voltaire ».
+  // Étiquettes déplaçables, fils qui suivent, ajout/édition au clic.
+  // ==========================================================================
+
+  const atelier = document.getElementById('atelier');
+  const svgFils = document.getElementById('fils');
+  const compteurEl = document.getElementById('compteur');
+
+  // Quelques étiquettes de départ, dans le vocabulaire de la maison.
+  let etiquettes = [
+    { titre: "Quartier & matelassure", texte: "Revoir la tension du point au niveau du quartier — échantillon cuir pleine fleur.", x: 90,  y: 60,  variante: "" ,      grain: "Pleine fleur" },
+    { titre: "Boucle laiton", texte: "Commander 12 boucles laiton vieilli, finition brossée, pour la collection automne.", x: 470, y: 130, variante: "fauve",  grain: "Laiton vieilli" },
+    { titre: "Idée — sangle tressée", texte: "Tester une sangle tressée trois brins, fil de lin ciré ton sur ton.", x: 250, y: 320, variante: "" ,     grain: "Lin ciré" },
+    { titre: "Retour client", texte: "Selle livrée : ajuster l'arçon d'un demi-point. Patine à reprendre.", x: 760, y: 250, variante: "sang", grain: "À reprendre" },
+  ];
+
+  let liens = [[0,2],[1,3]];   // paires d'étiquettes reliées par un fil
+  let modeRelier = false, premierePourLien = null;
+  let zCourant = 10;
+
+  function rendre() {
+    // On enlève les anciennes étiquettes (mais on garde svg/signature/compteur)
+    atelier.querySelectorAll('.etiquette').forEach(e => e.remove());
+
+    etiquettes.forEach((n, i) => {
+      const el = document.createElement('div');
+      el.className = 'etiquette' + (n.variante ? ' ' + n.variante : '');
+      el.style.left = n.x + 'px';
+      el.style.top  = n.y + 'px';
+      el.style.animationDelay = (i * 0.07) + 's';
+      el.dataset.i = i;
+      el.innerHTML =
+        '<h3 contenteditable="true" spellcheck="false">' + escapeHtml(n.titre) + '</h3>' +
+        '<p contenteditable="true" spellcheck="false">' + escapeHtml(n.texte) + '</p>' +
+        '<div class="grain">' + escapeHtml(n.grain || 'Cuir') + '</div>';
+
+      el.addEventListener('pointerdown', (e) => debutGlisse(e, i, el));
+      el.addEventListener('click', (e) => {
+        if (modeRelier) { e.stopPropagation(); choisirPourLien(i); }
+      });
+      // On enregistre le texte édité
+      el.querySelector('h3').addEventListener('blur', ev => etiquettes[i].titre = ev.target.textContent);
+      el.querySelector('p').addEventListener('blur',  ev => etiquettes[i].texte = ev.target.textContent);
+
+      atelier.appendChild(el);
+    });
+
+    dessinerFils();
+    compteurEl.textContent = etiquettes.length + (etiquettes.length > 1 ? ' pièces sur l’établi' : ' pièce sur l’établi');
+  }
+
+  // --- Déplacement d'une étiquette ---
+  let glisse = null;
+  function debutGlisse(e, i, el) {
+    if (e.target.isContentEditable) return;      // on n'attrape pas pendant l'édition
+    if (modeRelier) return;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('drag');
+    el.style.zIndex = (++zCourant);
+    glisse = { i, el, dx: e.clientX - el.offsetLeft, dy: e.clientY - el.offsetTop };
+  }
+  document.addEventListener('pointermove', (e) => {
+    if (!glisse) return;
+    let x = e.clientX - glisse.dx;
+    let y = e.clientY - glisse.dy;
+    x = Math.max(0, Math.min(x, atelier.clientWidth  - glisse.el.offsetWidth));
+    y = Math.max(0, Math.min(y, atelier.clientHeight - glisse.el.offsetHeight));
+    glisse.el.style.left = x + 'px';
+    glisse.el.style.top  = y + 'px';
+    etiquettes[glisse.i].x = x; etiquettes[glisse.i].y = y;
+    dessinerFils();
+  });
+  document.addEventListener('pointerup', () => {
+    if (glisse) { glisse.el.classList.remove('drag'); glisse = null; }
+  });
+
+  // --- Fils de lin : courbes qui retombent légèrement (caténaire) ---
+  function dessinerFils() {
+    let html = '';
+    liens.forEach(([a, b]) => {
+      const ea = atelier.querySelector('.etiquette[data-i="'+a+'"]');
+      const eb = atelier.querySelector('.etiquette[data-i="'+b+'"]');
+      if (!ea || !eb) return;
+      const x1 = ea.offsetLeft + ea.offsetWidth/2, y1 = ea.offsetTop + ea.offsetHeight/2;
+      const x2 = eb.offsetLeft + eb.offsetWidth/2, y2 = eb.offsetTop + eb.offsetHeight/2;
+      const mx = (x1+x2)/2, my = (y1+y2)/2 + 38;     // le +38 fait « retomber » le fil
+      // Deux traits : une ombre sombre puis le fil clair, et des points (couture)
+      html += '<path d="M'+x1+','+y1+' Q'+mx+','+my+' '+x2+','+y2+'" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="3.5"/>';
+      html += '<path d="M'+x1+','+y1+' Q'+mx+','+my+' '+x2+','+y2+'" fill="none" stroke="#DFCDA0" stroke-width="1.8" stroke-dasharray="6 5" stroke-linecap="round"/>';
+      html += '<circle cx="'+x1+'" cy="'+y1+'" r="3.5" fill="#C8A75C"/>';
+      html += '<circle cx="'+x2+'" cy="'+y2+'" r="3.5" fill="#C8A75C"/>';
+    });
+    svgFils.innerHTML = html;
+  }
+
+  // --- Ajouter une étiquette ---
+  const variantes = ['', 'fauve', 'sang'];
+  let compteAjouts = 0;
+  function ajouterEtiquette() {
+    compteAjouts++;
+    etiquettes.push({
+      titre: "Nouvelle idée",
+      texte: "Double-cliquez pour écrire votre note, puis faites-la glisser sur l’établi.",
+      x: 120 + (compteAjouts*26) % 300,
+      y: 120 + (compteAjouts*34) % 240,
+      variante: variantes[compteAjouts % variantes.length],
+      grain: "À tailler"
+    });
+    rendre();
+    toast("Étiquette ajoutée sur l’établi");
+  }
+
+  // --- Mode « relier au fil » ---
+  function relier() {
+    modeRelier = !modeRelier;
+    const b = document.getElementById('btnRelier');
+    b.textContent = modeRelier ? '🪡 Choisissez deux pièces…' : '🪡 Relier au fil';
+    b.classList.toggle('laiton', modeRelier);
+    premierePourLien = null;
+    if (modeRelier) toast("Cliquez deux étiquettes à coudre ensemble");
+  }
+  function choisirPourLien(i) {
+    if (premierePourLien === null) { premierePourLien = i; toast("Première pièce choisie…"); return; }
+    if (premierePourLien !== i) { liens.push([premierePourLien, i]); dessinerFils(); toast("Cousues au fil de lin"); }
+    premierePourLien = null;
+    relier();   // on ressort du mode
+  }
+
+  // --- Petit toast dans le ton ---
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  // Description : invite si vide
+  const desc = document.getElementById('description');
+  desc.addEventListener('blur', () => { if (desc.textContent.trim() === '') desc.innerHTML = ''; });
+
+  window.addEventListener('resize', dessinerFils);
+  rendre();
+</script>
+</body>
+</html>

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon deuxième cerveau — épuré</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================================
+     MAQUETTE 2 — « épuré, monochrome », façon Notion.
+     Tout le caractère tient dans la précision : filets fins, échelle
+     typographique nette, et un menu contextuel (clic droit) soigné.
+     ========================================================================= */
+  :root {
+    --paper:    #FAFAF8;   /* papier */
+    --ink:      #1F1E1C;   /* encre */
+    --ink-2:    #6B6A66;   /* texte secondaire */
+    --ink-3:    #9C9A95;   /* tertiaire / placeholders */
+    --line:     #E7E5E1;   /* filets */
+    --line-2:   #D8D5CF;
+    --hover:    #F1F0ED;
+    --sel:      #1F1E1C;   /* anneau de sélection (monochrome) */
+    --field:    #FFFFFF;
+
+    /* teintes de notes (pâles, façon Notion) */
+    --t-gris:   #F1F0ED;
+    --t-sable:  #F6EEE3;
+    --t-vert:   #EAF0E8;
+    --t-bleu:   #E8EEF4;
+    --t-rose:   #F6EAEC;
+    --t-mauve:  #EFEAF4;
+
+    --r: 10px;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.18);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,.06), 0 18px 40px -16px rgba(0,0,0,.28);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ----------------------------- Barre du haut --------------------------- */
+  #barre {
+    position: relative; z-index: 40;
+    display: flex; align-items: flex-start; gap: 18px;
+    padding: 16px 22px 14px;
+    background: rgba(250,250,248,.88);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .titre-zone { min-width: 0; }
+  #titre {
+    font-size: 21px; font-weight: 700; letter-spacing: -.015em;
+    outline: none; border-radius: 6px; cursor: text;
+    display: inline-block; line-height: 1.2;
+  }
+  #titre:focus { box-shadow: 0 0 0 2px var(--ink); }
+  #description {
+    font-size: 13px; color: var(--ink-2); margin-top: 2px;
+    outline: none; border-radius: 6px; cursor: text;
+    display: inline-block; width: fit-content; line-height: 1.4;
+  }
+  #description:empty::before { content: "Ajouter une description…"; color: var(--ink-3); }
+  #description:focus { box-shadow: 0 0 0 2px var(--ink); }
+
+  /* Onglets */
+  #onglets { display: flex; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
+  .onglet {
+    font-size: 13px; font-weight: 500; color: var(--ink-2);
+    padding: 5px 12px; border-radius: 7px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid transparent;
+    transition: background .12s, color .12s;
+    user-select: none;
+  }
+  .onglet:hover { background: var(--hover); }
+  .onglet.actif { background: var(--field); color: var(--ink); border-color: var(--line); box-shadow: var(--shadow); }
+  .onglet .x { color: var(--ink-3); font-size: 14px; line-height: 1; opacity: 0; transition: opacity .12s; }
+  .onglet:hover .x { opacity: 1; }
+  .onglet .x:hover { color: var(--ink); }
+  #ajoutOnglet { font-size: 15px; color: var(--ink-3); padding: 5px 10px; }
+
+  /* Outils à droite */
+  .outils { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  /* Recherche */
+  .recherche {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--field); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 10px; width: 180px;
+    transition: box-shadow .12s, border-color .12s;
+  }
+  .recherche:focus-within { border-color: var(--ink-3); box-shadow: 0 0 0 3px rgba(31,30,28,.06); }
+  .recherche svg { flex: 0 0 auto; color: var(--ink-3); }
+  .recherche input { border: 0; outline: 0; background: none; font: inherit; font-size: 13px; width: 100%; color: var(--ink); }
+
+  .btn {
+    font-size: 13px; font-weight: 500; color: var(--ink);
+    background: var(--field); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background .12s, box-shadow .12s, transform .08s, border-color .12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--hover); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .btn.icone { padding: 8px; }
+  .btn.primaire { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.primaire:hover { background: #000; }
+  .btn.actif { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn .raccourci { font-size: 11px; color: var(--ink-3); }
+
+  /* Pastille « Enregistré » */
+  #enregistre {
+    font-size: 12px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 6px;
+    opacity: 0; transition: opacity .25s;
+  }
+  #enregistre.on { opacity: 1; }
+  #enregistre .pt { width: 6px; height: 6px; border-radius: 50%; background: #7BAE7B; }
+
+  /* ------------------------------- La toile ------------------------------ */
+  #scene { position: absolute; inset: 92px 0 0 0; overflow: hidden;
+    /* grille de points très discrète — la signature « surface propre » */
+    background-image: radial-gradient(circle, var(--line-2) 1px, transparent 1.4px);
+    background-size: 26px 26px; background-position: -1px -1px;
+  }
+  body.panneau-masque #barre .titre-zone,
+  body.panneau-masque #barre .recherche,
+  body.panneau-masque #onglets { display: none; }
+
+  #toile { position: absolute; inset: 0; transform-origin: 0 0; }
+  #liens { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
+
+  /* Une note : carte sobre, filet 1px, légère élévation au survol */
+  .note {
+    position: absolute; width: 230px;
+    background: var(--field); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 14px 15px 13px;
+    box-shadow: var(--shadow); cursor: grab; z-index: 2;
+    transition: box-shadow .14s, transform .1s, border-color .12s;
+    user-select: none;
+  }
+  .note:hover { box-shadow: var(--shadow-lift); }
+  .note.drag { cursor: grabbing; box-shadow: var(--shadow-lift); z-index: 60; }
+  .note.sel { border-color: var(--sel); box-shadow: 0 0 0 2px var(--sel), var(--shadow); }
+  .note.attenue { opacity: .28; filter: grayscale(1); }
+  .note.trouve { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink), var(--shadow-lift); }
+
+  .note h3 { font-size: 14.5px; font-weight: 600; line-height: 1.25; margin-bottom: 5px; outline: none; }
+  .note p  { font-size: 13px; line-height: 1.5; color: var(--ink-2); outline: none; white-space: pre-wrap; }
+  .note .meta { margin-top: 9px; display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--ink-3); }
+  .note .pointcouleur { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--line-2); }
+
+  /* note réduite */
+  .note.reduite p, .note.reduite .meta { display: none; }
+  .note.reduite { padding-bottom: 12px; }
+  .note.reduite h3 { margin-bottom: 0; }
+
+  /* images dans une note */
+  .note .vignette { margin-top: 10px; border-radius: 7px; width: 100%; height: 88px;
+    background: var(--hover) center/cover; border: 1px solid var(--line);
+    display: grid; place-items: center; color: var(--ink-3); font-size: 12px; }
+
+  /* poignée discrète clic droit */
+  .note .indice { position: absolute; top: 9px; right: 10px; color: var(--ink-3);
+    font-size: 12px; opacity: 0; transition: opacity .12s; }
+  .note:hover .indice { opacity: 1; }
+
+  /* apparition */
+  @keyframes pose { from { opacity: 0; transform: translateY(8px); } }
+  .note { animation: pose .32s ease backwards; }
+
+  /* --------------------------- Menu contextuel --------------------------- */
+  #menu {
+    position: fixed; z-index: 200; min-width: 214px;
+    background: var(--field); border: 1px solid var(--line-2);
+    border-radius: 11px; padding: 6px; box-shadow: var(--shadow-lift);
+    display: none; animation: menuIn .1s ease;
+  }
+  @keyframes menuIn { from { opacity: 0; transform: scale(.97) translateY(-3px); } }
+  .mi { display: flex; align-items: center; gap: 10px; padding: 8px 9px; border-radius: 7px;
+    font-size: 13px; color: var(--ink); cursor: pointer; }
+  .mi:hover { background: var(--hover); }
+  .mi .ico { width: 16px; text-align: center; color: var(--ink-2); }
+  .mi .kbd { margin-left: auto; font-size: 11px; color: var(--ink-3); }
+  .mi.danger { color: #B23B3B; } .mi.danger .ico { color: #B23B3B; }
+  .sep { height: 1px; background: var(--line); margin: 5px 4px; }
+  .titremenu { font-size: 11px; color: var(--ink-3); padding: 6px 9px 4px; letter-spacing: .03em; }
+  .nuancier { display: flex; gap: 7px; padding: 4px 9px 8px; }
+  .nuance { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 1px solid var(--line-2);
+    transition: transform .1s; }
+  .nuance:hover { transform: scale(1.15); }
+  .nuance.actif { box-shadow: 0 0 0 2px var(--ink); }
+
+  /* ------------------------------ Corbeille ------------------------------ */
+  #corbeille {
+    position: absolute; right: 26px; bottom: 26px; z-index: 70;
+    width: 58px; height: 58px; border-radius: 14px;
+    background: var(--field); border: 1px dashed var(--line-2);
+    display: none; align-items: center; justify-content: center;
+    color: var(--ink-2); box-shadow: var(--shadow); transition: transform .12s, background .12s, border-color .12s;
+  }
+  #corbeille.actif { display: flex; }
+  #corbeille.survol { background: #FBECEC; border-color: #D98B8B; color: #B23B3B; transform: scale(1.08); }
+
+  /* zoom + déplacement (coin bas-gauche) */
+  #zoombar {
+    position: absolute; left: 26px; bottom: 26px; z-index: 70;
+    display: flex; align-items: center; gap: 2px;
+    background: var(--field); border: 1px solid var(--line); border-radius: 10px;
+    padding: 4px; box-shadow: var(--shadow);
+  }
+  #zoombar button { border: 0; background: none; cursor: pointer; padding: 6px 9px; border-radius: 7px;
+    font-size: 15px; color: var(--ink); }
+  #zoombar button:hover { background: var(--hover); }
+  #zoomval { font-size: 12px; color: var(--ink-2); min-width: 42px; text-align: center; }
+
+  /* rectangle de sélection */
+  #rectsel { position: absolute; border: 1px solid var(--ink); background: rgba(31,30,28,.05);
+    border-radius: 3px; display: none; z-index: 55; pointer-events: none; }
+
+  /* compteur discret */
+  #compteur { position: absolute; right: 26px; top: 104px; z-index: 5;
+    font-size: 12px; color: var(--ink-3); }
+
+  /* toast */
+  #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(16px);
+    background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 10px;
+    font-size: 13.5px; box-shadow: var(--shadow-lift); opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s; z-index: 300; max-width: 80vw; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* bouton afficher (quand panneau masqué) */
+</style>
+</head>
+<body>
+
+  <div id="barre">
+    <button class="btn icone" title="Masquer le panneau" onclick="basculerPanneau()" id="btnMasquer">⤢</button>
+
+    <div class="titre-zone">
+      <div id="titre" contenteditable="true" spellcheck="false">Mon deuxième cerveau</div>
+      <div id="description" contenteditable="true" spellcheck="false">Toutes mes idées, au même endroit.</div>
+      <div id="onglets"></div>
+    </div>
+
+    <div class="outils">
+      <span id="enregistre"><span class="pt"></span>Enregistré</span>
+      <label class="recherche">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="recherche" type="text" placeholder="Rechercher…">
+      </label>
+      <button class="btn" id="btnSelection" onclick="basculerSelection()">⬚ Sélection</button>
+      <button class="btn" id="btnAnnuler" onclick="annuler()" style="display:none">↩ Annuler</button>
+      <button class="btn icone" title="Partager" onclick="partager()">↗</button>
+      <button class="btn icone" title="Télécharger" onclick="toast('Notes téléchargées')">⤓</button>
+      <button class="btn primaire" onclick="ajouterNote()">＋ Nouvelle note</button>
+    </div>
+  </div>
+
+  <div id="scene">
+    <div id="toile">
+      <svg id="liens"></svg>
+    </div>
+    <div id="rectsel"></div>
+    <div id="compteur"></div>
+    <div id="zoombar">
+      <button onclick="zoom(-0.1)" title="Dézoomer">−</button>
+      <span id="zoomval" class="mono">100%</span>
+      <button onclick="zoom(0.1)" title="Zoomer">+</button>
+      <button onclick="recentrer()" title="Recentrer" style="font-size:13px">⟲</button>
+    </div>
+    <div id="corbeille" title="Glissez-y les notes sélectionnées">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+    </div>
+  </div>
+
+  <!-- menu contextuel -->
+  <div id="menu"></div>
+
+  <div id="toast"></div>
+
+<script>
+  // ==========================================================================
+  // Maquette 2 — « épuré ». Démontre l'intégration des fonctions existantes
+  // dans une interface monochrome, avec menu contextuel (clic droit).
+  // ==========================================================================
+  const scene = document.getElementById('scene');
+  const toile = document.getElementById('toile');
+  const svg   = document.getElementById('liens');
+  const menu  = document.getElementById('menu');
+  const compteurEl = document.getElementById('compteur');
+
+  const TEINTES = {
+    'aucune': '#FFFFFF', 'gris': 'var(--t-gris)', 'sable': 'var(--t-sable)',
+    'vert': 'var(--t-vert)', 'bleu': 'var(--t-bleu)', 'rose': 'var(--t-rose)', 'mauve': 'var(--t-mauve)'
+  };
+
+  // Deux onglets, chacun ses notes (démo des onglets)
+  let onglets = [
+    { nom: "Travail", notes: [
+      { id:1, titre:"Réunion produit", texte:"Préparer la feuille de route Q3 et les priorités.", x:120, y:60, couleur:"aucune", reduite:false, image:false },
+      { id:2, titre:"Idée", texte:"Et si on regroupait les notes par projet, avec des couleurs ?", x:430, y:150, couleur:"bleu", reduite:false, image:false },
+      { id:3, titre:"À relire", texte:"Le brief client — vérifier le budget et les délais.", x:250, y:330, couleur:"sable", reduite:false, image:false },
+      { id:4, titre:"Photos maquette", texte:"Captures d'écran des trois pistes de design.", x:680, y:280, couleur:"aucune", reduite:false, image:true },
+    ], liens:[[1,3]] },
+    { nom: "Perso", notes: [
+      { id:5, titre:"Lecture", texte:"Finir le chapitre 4 ce week-end.", x:160, y:120, couleur:"vert", reduite:false, image:false },
+      { id:6, titre:"Courses", texte:"Café, pain, fruits.", x:480, y:240, couleur:"aucune", reduite:true, image:false },
+    ], liens:[] },
+  ];
+  let ongletActif = 0;
+  let prochainId = 7;
+
+  // état
+  let scale = 1;
+  let modeSelection = false;
+  let selection = new Set();
+  let modeRelier = false, sourceRelier = null;
+  let historique = [];   // pour annuler
+  let zTop = 10;
+
+  const notes  = () => onglets[ongletActif].notes;
+  const liens  = () => onglets[ongletActif].liens;
+  const parId  = (id) => notes().find(n => n.id === id);
+
+  // -------------------------------- Rendu ---------------------------------
+  function rendre() {
+    toile.querySelectorAll('.note').forEach(e => e.remove());
+    notes().forEach((n, i) => {
+      const el = document.createElement('div');
+      el.className = 'note' + (n.reduite ? ' reduite' : '') + (selection.has(n.id) ? ' sel' : '');
+      el.style.left = n.x + 'px'; el.style.top = n.y + 'px';
+      el.style.background = TEINTES[n.couleur] || '#fff';
+      el.style.animationDelay = (i*0.04) + 's';
+      el.dataset.id = n.id;
+      el.innerHTML =
+        '<div class="indice">⋯</div>' +
+        '<h3 contenteditable="true" spellcheck="false">' + esc(n.titre) + '</h3>' +
+        '<p contenteditable="true" spellcheck="false">' + esc(n.texte) + '</p>' +
+        (n.image ? '<div class="vignette">aperçu image</div>' : '') +
+        '<div class="meta"><span class="pointcouleur" style="background:'+(TEINTES[n.couleur]||'#fff')+'"></span>'+
+          '<span class="mono">#'+n.id+'</span></div>';
+
+      el.addEventListener('pointerdown', e => debutGlisse(e, n, el));
+      el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); ouvrirMenuNote(e, n); });
+      el.addEventListener('click', e => {
+        if (modeRelier) { e.stopPropagation(); cliquerPourRelier(n); return; }
+        if (modeSelection && !glisseFaite) { e.stopPropagation(); basculerSel(n.id); }
+      });
+      el.querySelector('h3').addEventListener('blur', ev => { n.titre = ev.target.textContent; signalerEnregistre(); });
+      el.querySelector('p').addEventListener('blur',  ev => { n.texte = ev.target.textContent; signalerEnregistre(); });
+      toile.appendChild(el);
+    });
+    dessinerLiens();
+    compteurEl.textContent = notes().length + ' note' + (notes().length>1?'s':'');
+    rendreOnglets();
+    majCorbeille();
+  }
+
+  function rendreOnglets() {
+    const c = document.getElementById('onglets'); c.innerHTML = '';
+    onglets.forEach((o, idx) => {
+      const t = document.createElement('div');
+      t.className = 'onglet' + (idx===ongletActif ? ' actif' : '');
+      t.innerHTML = '<span class="nom">'+esc(o.nom)+'</span>' + (onglets.length>1 ? '<span class="x">×</span>' : '');
+      t.querySelector('.nom').addEventListener('click', () => { ongletActif = idx; selection.clear(); rendre(); });
+      t.addEventListener('dblclick', () => renommerOnglet(idx, t));
+      const x = t.querySelector('.x');
+      if (x) x.addEventListener('click', e => { e.stopPropagation(); onglets.splice(idx,1); if(ongletActif>=onglets.length) ongletActif=0; rendre(); });
+      c.appendChild(t);
+    });
+    const plus = document.createElement('div');
+    plus.className = 'onglet'; plus.id = 'ajoutOnglet'; plus.textContent = '＋';
+    plus.title = 'Nouvel onglet';
+    plus.addEventListener('click', () => { onglets.push({nom:'Nouvel onglet', notes:[], liens:[]}); ongletActif = onglets.length-1; selection.clear(); rendre(); });
+    c.appendChild(plus);
+  }
+  function renommerOnglet(idx, el) {
+    const nom = el.querySelector('.nom');
+    const input = document.createElement('input');
+    input.value = onglets[idx].nom; input.style.cssText = 'font:inherit;border:0;outline:0;background:none;width:90px;';
+    nom.replaceWith(input); input.focus(); input.select();
+    const valider = () => { onglets[idx].nom = input.value.trim() || 'Onglet'; rendre(); };
+    input.addEventListener('blur', valider);
+    input.addEventListener('keydown', e => { if(e.key==='Enter') valider(); });
+  }
+
+  // ------------------------------ Déplacement -----------------------------
+  let glisse = null, glisseFaite = false;
+  function debutGlisse(e, n, el) {
+    if (e.target.isContentEditable) return;
+    if (e.button !== 0) return;            // pas pour le clic droit
+    if (modeRelier) return;
+    glisseFaite = false;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('drag');
+    el.style.zIndex = (++zTop);
+    // si on déplace une note sélectionnée, on déplace tout le groupe
+    const groupe = (modeSelection && selection.has(n.id))
+      ? notes().filter(x => selection.has(x.id))
+      : [n];
+    glisse = { groupe, sx: e.clientX, sy: e.clientY,
+      depart: groupe.map(g => ({ n:g, x:g.x, y:g.y })), el };
+  }
+  document.addEventListener('pointermove', e => {
+    if (glisse) {
+      const dx = (e.clientX - glisse.sx) / scale;
+      const dy = (e.clientY - glisse.sy) / scale;
+      if (Math.abs(dx)>2 || Math.abs(dy)>2) glisseFaite = true;
+      glisse.depart.forEach(d => {
+        d.n.x = Math.max(0, d.x + dx); d.n.y = Math.max(0, d.y + dy);
+        const el = toile.querySelector('.note[data-id="'+d.n.id+'"]');
+        if (el) { el.style.left = d.n.x+'px'; el.style.top = d.n.y+'px'; }
+      });
+      dessinerLiens();
+      survolCorbeille(e);
+    }
+    if (rect.actif) majRect(e);
+  });
+  document.addEventListener('pointerup', e => {
+    if (glisse) {
+      glisse.el.classList.remove('drag');
+      finCorbeille(e);
+      glisse = null;
+      signalerEnregistre();
+      setTimeout(()=>glisseFaite=false, 0);
+    }
+    if (rect.actif) finRect();
+  });
+
+  // -------------------------------- Liens ---------------------------------
+  function dessinerLiens() {
+    let h = '';
+    liens().forEach(([a,b]) => {
+      const ea = toile.querySelector('.note[data-id="'+a+'"]');
+      const eb = toile.querySelector('.note[data-id="'+b+'"]');
+      if (!ea || !eb) return;
+      const x1 = ea.offsetLeft+ea.offsetWidth/2, y1 = ea.offsetTop+ea.offsetHeight/2;
+      const x2 = eb.offsetLeft+eb.offsetWidth/2, y2 = eb.offsetTop+eb.offsetHeight/2;
+      h += '<path d="M'+x1+','+y1+' C'+((x1+x2)/2)+','+y1+' '+((x1+x2)/2)+','+y2+' '+x2+','+y2+
+           '" fill="none" stroke="#C9C6C0" stroke-width="1.5"/>';
+    });
+    svg.innerHTML = h;
+  }
+
+  // --------------------------- Menu contextuel ----------------------------
+  function ouvrirMenuNote(e, n) {
+    const nuances = Object.keys(TEINTES).map(k =>
+      '<div class="nuance'+(n.couleur===k?' actif':'')+'" title="'+k+'" style="background:'+TEINTES[k]+'" data-c="'+k+'"></div>').join('');
+    menu.innerHTML =
+      '<div class="mi" data-a="modifier"><span class="ico">✎</span>Modifier le texte</div>' +
+      '<div class="mi" data-a="reduire"><span class="ico">'+(n.reduite?'▢':'▭')+'</span>'+(n.reduite?'Agrandir':'Réduire')+'</div>' +
+      '<div class="mi" data-a="image"><span class="ico">▤</span>Ajouter une image</div>' +
+      '<div class="mi" data-a="relier"><span class="ico">↔</span>Relier à une note…</div>' +
+      '<div class="mi" data-a="dupliquer"><span class="ico">⧉</span>Dupliquer<span class="kbd mono">⌘D</span></div>' +
+      '<div class="sep"></div>' +
+      '<div class="titremenu">Couleur</div><div class="nuancier">'+nuances+'</div>' +
+      '<div class="sep"></div>' +
+      '<div class="mi danger" data-a="supprimer"><span class="ico">🗑</span>Supprimer<span class="kbd mono">Suppr</span></div>';
+    placerMenu(e);
+    menu.querySelectorAll('.nuance').forEach(d => d.onclick = () => { n.couleur = d.dataset.c; fermerMenu(); rendre(); signalerEnregistre(); });
+    menu.querySelectorAll('.mi').forEach(mi => mi.onclick = () => actionNote(mi.dataset.a, n));
+  }
+  function ouvrirMenuFond(e) {
+    menu.innerHTML =
+      '<div class="mi" data-a="nouvelle"><span class="ico">＋</span>Nouvelle note ici</div>' +
+      '<div class="mi" data-a="tout"><span class="ico">⬚</span>Tout sélectionner<span class="kbd mono">⌘A</span></div>' +
+      '<div class="mi" data-a="recentrer"><span class="ico">⟲</span>Recentrer la vue</div>';
+    placerMenu(e);
+    menu._posX = (e.clientX - scene.getBoundingClientRect().left)/scale;
+    menu._posY = (e.clientY - scene.getBoundingClientRect().top)/scale;
+    menu.querySelectorAll('.mi').forEach(mi => mi.onclick = () => {
+      const a = mi.dataset.a; fermerMenu();
+      if (a==='nouvelle') ajouterNote(menu._posX, menu._posY);
+      if (a==='tout') { notes().forEach(n=>selection.add(n.id)); modeSelection=true; majBoutonSel(); rendre(); }
+      if (a==='recentrer') recentrer();
+    });
+  }
+  function placerMenu(e) {
+    menu.style.display = 'block';
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    let x = e.clientX, y = e.clientY;
+    if (x + w > innerWidth - 8) x = innerWidth - w - 8;
+    if (y + h > innerHeight - 8) y = innerHeight - h - 8;
+    menu.style.left = x+'px'; menu.style.top = y+'px';
+  }
+  function fermerMenu() { menu.style.display = 'none'; }
+  document.addEventListener('click', fermerMenu);
+  document.addEventListener('scroll', fermerMenu, true);
+  scene.addEventListener('contextmenu', e => { e.preventDefault(); ouvrirMenuFond(e); });
+
+  function actionNote(a, n) {
+    fermerMenu();
+    if (a==='modifier') { const el = toile.querySelector('.note[data-id="'+n.id+'"] p'); el && el.focus(); }
+    else if (a==='reduire') { n.reduite = !n.reduite; rendre(); }
+    else if (a==='image') { n.image = true; rendre(); toast('Image ajoutée (démo)'); }
+    else if (a==='relier') { demarrerRelier(n); }
+    else if (a==='dupliquer') { dupliquer(n); }
+    else if (a==='supprimer') { supprimer([n.id]); }
+  }
+
+  // ------------------------------ Fonctions -------------------------------
+  function ajouterNote(x, y) {
+    const n = { id: prochainId++, titre:"Nouvelle note", texte:"Écrivez ici…",
+      x: x ?? (90 + Math.round((notes().length*40)%320)),
+      y: y ?? (90 + Math.round((notes().length*52)%260)),
+      couleur:"aucune", reduite:false, image:false };
+    notes().push(n); rendre(); signalerEnregistre();
+    setTimeout(()=>{ const el = toile.querySelector('.note[data-id="'+n.id+'"] h3'); if(el){ el.focus(); document.getSelection().selectAllChildren(el);} }, 30);
+  }
+  function dupliquer(n) {
+    const c = {...n, id: prochainId++, x:n.x+24, y:n.y+24};
+    notes().push(c); rendre(); toast('Note dupliquée'); signalerEnregistre();
+  }
+  function supprimer(ids) {
+    const sauv = { onglet: ongletActif, notes: notes().filter(n=>ids.includes(n.id)), liens: liens().slice() };
+    historique.push(sauv);
+    onglets[ongletActif].notes = notes().filter(n => !ids.includes(n.id));
+    onglets[ongletActif].liens = liens().filter(([a,b]) => !ids.includes(a) && !ids.includes(b));
+    ids.forEach(i => selection.delete(i));
+    document.getElementById('btnAnnuler').style.display = '';
+    rendre(); toast(ids.length>1 ? ids.length+' notes supprimées' : 'Note supprimée'); signalerEnregistre();
+  }
+  function annuler() {
+    const s = historique.pop(); if (!s) return;
+    ongletActif = s.onglet;
+    onglets[ongletActif].notes.push(...s.notes);
+    onglets[ongletActif].liens = s.liens;
+    if (!historique.length) document.getElementById('btnAnnuler').style.display = 'none';
+    rendre(); toast('Suppression annulée');
+  }
+
+  // relier
+  function demarrerRelier(n) { modeRelier = true; sourceRelier = n; toast('Cliquez la note à relier'); }
+  function cliquerPourRelier(cible) {
+    if (sourceRelier && cible.id !== sourceRelier.id) {
+      liens().push([sourceRelier.id, cible.id]); toast('Notes reliées'); signalerEnregistre();
+    }
+    modeRelier = false; sourceRelier = null; rendre();
+  }
+
+  // sélection
+  function basculerSelection() { modeSelection = !modeSelection; if(!modeSelection) selection.clear(); majBoutonSel(); rendre(); }
+  function majBoutonSel() {
+    const b = document.getElementById('btnSelection');
+    b.classList.toggle('actif', modeSelection);
+    b.textContent = modeSelection ? '⬚ Sélection (active)' : '⬚ Sélection';
+  }
+  function basculerSel(id) { selection.has(id) ? selection.delete(id) : selection.add(id); rendre(); }
+  function majCorbeille() { document.getElementById('corbeille').classList.toggle('actif', selection.size>0); }
+
+  // rectangle de sélection à la souris sur le fond (en mode sélection)
+  let rect = { actif:false, x0:0, y0:0, el: document.getElementById('rectsel') };
+  scene.addEventListener('pointerdown', e => {
+    if (e.target.closest('.note') || e.target.closest('#zoombar') || e.target.closest('#corbeille')) return;
+    if (e.button !== 0) return;
+    if (modeSelection) {
+      rect.actif = true; rect.x0 = e.clientX; rect.y0 = e.clientY;
+      rect.el.style.display = 'block'; majRect(e);
+    } else if (!modeRelier) {
+      selection.clear(); rendre();
+    }
+  });
+  function majRect(e) {
+    const x = Math.min(e.clientX, rect.x0), y = Math.min(e.clientY, rect.y0);
+    const w = Math.abs(e.clientX-rect.x0), h = Math.abs(e.clientY-rect.y0);
+    Object.assign(rect.el.style, { left:x+'px', top:y+'px', width:w+'px', height:h+'px' });
+    const r = { left:x, top:y, right:x+w, bottom:y+h };
+    notes().forEach(n => {
+      const el = toile.querySelector('.note[data-id="'+n.id+'"]'); if(!el) return;
+      const b = el.getBoundingClientRect();
+      const dedans = b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top;
+      dedans ? selection.add(n.id) : selection.delete(n.id);
+      el.classList.toggle('sel', selection.has(n.id));
+    });
+    majCorbeille();
+  }
+  function finRect() { rect.actif = false; rect.el.style.display = 'none'; }
+
+  // corbeille (drag-to-delete)
+  function survolCorbeille(e) {
+    if (!selection.size) return;
+    const c = document.getElementById('corbeille'); const b = c.getBoundingClientRect();
+    const dessus = e.clientX>b.left && e.clientX<b.right && e.clientY>b.top && e.clientY<b.bottom;
+    c.classList.toggle('survol', dessus && glisse && glisse.groupe.some(g=>selection.has(g.id)));
+  }
+  function finCorbeille(e) {
+    const c = document.getElementById('corbeille'); const b = c.getBoundingClientRect();
+    const dessus = e.clientX>b.left && e.clientX<b.right && e.clientY>b.top && e.clientY<b.bottom;
+    c.classList.remove('survol');
+    if (dessus && glisse && glisse.groupe.some(g=>selection.has(g.id))) {
+      const ids = [...selection];
+      if (confirm('Supprimer '+ids.length+' note(s) ?')) supprimer(ids);
+    }
+  }
+
+  // zoom + recentrer
+  function appliquerZoom() { toile.style.transform = 'scale('+scale+')'; document.getElementById('zoomval').textContent = Math.round(scale*100)+'%'; dessinerLiens(); }
+  function zoom(d) { scale = Math.min(2, Math.max(0.4, +(scale+d).toFixed(2))); appliquerZoom(); }
+  function recentrer() { scale = 1; appliquerZoom(); toile.style.transform = 'scale(1)'; toast('Vue recentrée'); }
+
+  // panneau masquer
+  function basculerPanneau() {
+    document.body.classList.toggle('panneau-masque');
+    const masque = document.body.classList.contains('panneau-masque');
+    document.getElementById('btnMasquer').textContent = masque ? '⤡' : '⤢';
+  }
+
+  function partager() { toast('Lien copié : https://martinleyssene.github.io/mes-notes/'); }
+
+  // recherche
+  document.getElementById('recherche').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    toile.querySelectorAll('.note').forEach(el => {
+      const n = parId(+el.dataset.id);
+      const match = q==='' || (n.titre+' '+n.texte).toLowerCase().includes(q);
+      el.classList.toggle('attenue', q!=='' && !match);
+      el.classList.toggle('trouve', q!=='' && match);
+    });
+  });
+
+  // témoin « Enregistré »
+  let tEnreg;
+  function signalerEnregistre() {
+    const e = document.getElementById('enregistre'); e.classList.add('on');
+    clearTimeout(tEnreg); tEnreg = setTimeout(()=>e.classList.remove('on'), 1600);
+  }
+
+  // raccourcis clavier
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='z') { e.preventDefault(); annuler(); }
+    if ((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='a' && !e.target.isContentEditable) { e.preventDefault(); notes().forEach(n=>selection.add(n.id)); modeSelection=true; majBoutonSel(); rendre(); }
+    if (e.key==='Delete' && selection.size && !e.target.isContentEditable) supprimer([...selection]);
+    if (e.key==='Escape') { modeRelier=false; sourceRelier=null; if(modeSelection){modeSelection=false;selection.clear();majBoutonSel();} fermerMenu(); rendre(); }
+  });
+
+  // description vide
+  const desc = document.getElementById('description');
+  desc.addEventListener('blur', () => { if(desc.textContent.trim()==='') desc.innerHTML=''; });
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  window.addEventListener('resize', dessinerLiens);
+
+  rendre();
+</script>
+</body>
+</html>
