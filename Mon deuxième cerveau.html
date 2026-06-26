@@ -601,7 +601,7 @@
     <button onclick="chargerNotes()" style="background: #ff9900;">📤 Charger des notes</button>
     <div style="display: flex; flex-direction: column; gap: 6px;">
       <button id="telechargerUneFois" onclick="telechargerNotes()" style="background: #0066cc;">Télécharger</button>
-      <button id="telechargerSous" onclick="telechargerNotesSous()" title="Choisir un nouvel emplacement (en ligne, Chrome/Edge)" style="background: #004a99;">Télécharger sous…</button>
+      <button id="telechargerSous" onclick="telechargerNotesSous()" title="Choisir un nouvel emplacement (en ligne, Chrome/Edge)" style="background: #003a78;">Télécharger sous…</button>
     </div>
     <button id="boutonPartager" onclick="partagerNotes()" title="Affiche le lien de l'application à copier et envoyer à qui tu veux" style="background: #009688;">🔗 Partager</button>
     <button id="boutonRelier" onclick="basculerModeRelier()" style="background: #6b3fa0;">🔗 Relier</button>
@@ -2635,9 +2635,7 @@
 
     // "estAuto" = true quand c'est la sauvegarde automatique (toutes les 10 min).
     // Dans ce cas on ne dérange JAMAIS l'utilisateur avec une fenêtre.
-    // forcerChoixEmplacement = true → on rouvre la fenêtre "Enregistrer sous"
-    // pour choisir un NOUVEL emplacement, qui remplacera l'ancien lien.
-    async function telechargerNotes(estAuto, forcerChoixEmplacement) {
+    async function telechargerNotes(estAuto) {
       // En sauvegarde automatique (silencieuse), on n'affiche pas l'indicateur
       // de chargement, pour ne pas le faire clignoter à chaque modification.
       const spinner = estAuto ? null : document.getElementById('spinner');
@@ -2665,12 +2663,9 @@
         // (Chrome, Edge...). On réutilise toujours le MÊME fichier.
         if (window.showSaveFilePicker) {
           try {
-            // "Télécharger sous…" : on oublie l'emplacement actuel pour en
-            // rechoisir un nouveau juste après.
-            if (forcerChoixEmplacement) fichierNotesEnregistre = null;
-            // Si on ne connaît pas encore le fichier (et qu'on ne force pas un
-            // nouveau choix), on tente de le récupérer depuis la dernière fois.
-            if (!fichierNotesEnregistre && !forcerChoixEmplacement) {
+            // Si on ne connaît pas encore le fichier, on tente de le récupérer
+            // depuis la dernière fois (IndexedDB).
+            if (!fichierNotesEnregistre) {
               fichierNotesEnregistre = await recupererFichierMemorise();
             }
 
@@ -2736,16 +2731,38 @@
 
     // "Télécharger sous…" : choisir un NOUVEL emplacement pour le fichier de
     // notes. Désormais, les enregistrements (manuels ET automatiques) iront là.
-    function telechargerNotesSous() {
+    async function telechargerNotesSous() {
       // La fenêtre "Enregistrer sous" n'existe qu'en ligne avec Chrome/Edge.
       // En local (file://) ou sur Safari/Firefox, on prévient et on retombe sur
       // un téléchargement classique (vers le dossier de téléchargements).
       if (!window.showSaveFilePicker || location.protocol === 'file:') {
         afficherToast("ⓘ Choisir l'emplacement n'est possible que sur la version EN LIGNE avec Chrome ou Edge. Ici, le fichier part dans ton dossier de téléchargements habituel.", 'attention', 8000);
-        telechargerNotes(false, false);
+        telechargerNotes(false);
         return;
       }
-      telechargerNotes(false, true);   // ouvre la fenêtre pour choisir où enregistrer
+      // IMPORTANT : on ouvre la fenêtre TOUT DE SUITE, dans le clic de
+      // l'utilisateur, AVANT le moindre "await" qui ferait expirer l'action
+      // utilisateur (sinon le navigateur refuse d'afficher le sélecteur).
+      let nouvelEmplacement;
+      try {
+        nouvelEmplacement = await window.showSaveFilePicker({
+          suggestedName: "mes-notes.json",
+          types: [{
+            description: "Fichier de notes",
+            accept: { "application/json": [".json"] }
+          }]
+        });
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;   // l'utilisateur a annulé : normal
+        afficherToast("❌ Impossible d'ouvrir la fenêtre d'enregistrement : " + e.message, 'erreur');
+        return;
+      }
+      // On retient ce nouvel emplacement, puis on écrit dedans via la fonction
+      // habituelle (qui n'a plus besoin d'ouvrir de fenêtre : le fichier est connu).
+      fichierNotesEnregistre = nouvelEmplacement;
+      try { await memoriserFichier(nouvelEmplacement); } catch (e) {}
+      telechargerNotes(false);
+      afficherToast("✅ Nouvel emplacement choisi. Tes notes seront désormais enregistrées ici.", 'succes');
     }
 
     // Le contrôle manuel est désormais un bouton "Télécharger" unique
