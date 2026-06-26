@@ -1,0 +1,5 @@
+# Version « tout-en-un » : fichier DÉRIVÉ et local, généré pour le partage
+# hors-ligne (logique.js intégré dedans). On ne le versionne pas : il ferait
+# doublon avec la version de référence (Mon deuxième cerveau.html + logique.js)
+# et serait vite périmé. À régénérer au besoin.
+Mon deuxième cerveau (tout-en-un).html
