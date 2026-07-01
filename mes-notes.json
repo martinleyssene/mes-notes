@@ -1,0 +1,526 @@
+{
+  "format": "mon-deuxieme-cerveau",
+  "version": 1,
+  "notes": [
+    {
+      "titre": "Vérification du cuir",
+      "contenu": "Le cuir est vérifié à la main. Ses défauts sont signalés à une machine via un stylo connecté à une table a digitaliser sur lequel est posé le morceau de cuir. "
+    },
+    {
+      "titre": "Sélection des morceaux de cuir",
+      "contenu": "Les pièces qui seront ensuite découpé dans le cuir sont virtuellement placés à la main sur ordinateur en évitant les zones avec des défauts."
+    },
+    {
+      "titre": "Découpe du cuir",
+      "contenu": "Les pièces sont découpées selon le placement qui a été fait précédemment sur ordinateur grâce à une machine. "
+    },
+    {
+      "titre": "Récupération des pièces",
+      "contenu": "les pièces sont récupérées, un numéro de série leur est apposé et elles sont rangées ensemble dans des caisses afin d'être utilisées plus tard lors de la confection d'une selle."
+    },
+    {
+      "titre": "Elodie Gonzalez",
+      "contenu": "Responsable atelier. Première employée, elle est là depuis le début, elle sait faire toutes les étapes de la confection d'une selle, du début à la fin."
+    },
+    {
+      "titre": "Laurent Renard",
+      "contenu": "IT. Il développe des apps. J'ai assisté à une réunion. La dernière app sert à programmer des cours d'équitation pour les écuries."
+    },
+    {
+      "titre": "Aurélie Julienne",
+      "contenu": "R&D, elle est chef de projet innovation. Elle fabrique des plans pour des nouvelles selles et invente des options à intégrer dedans."
+    },
+    {
+      "titre": "Julie Larre-Brusset",
+      "contenu": "IT. Elle développe des apps"
+    },
+    {
+      "titre": "Coupe des matériaux",
+      "contenu": ""
+    },
+    {
+      "titre": "Stock",
+      "contenu": "réception des matières premières "
+    },
+    {
+      "titre": "Assemblage",
+      "contenu": "Assemblage des différents morceaux de la selle"
+    },
+    {
+      "titre": "Groupe Voltaire",
+      "contenu": ""
+    },
+    {
+      "titre": "SAV",
+      "contenu": ""
+    },
+    {
+      "titre": "Alexandre Martin ",
+      "contenu": "IT. J'ai pas vraiment de détails"
+    },
+    {
+      "titre": "IT",
+      "contenu": ""
+    },
+    {
+      "titre": "Arnaud Bret",
+      "contenu": "IT, mon maitre de satge"
+    },
+    {
+      "titre": "R&D",
+      "contenu": ""
+    },
+    {
+      "titre": "Kim Gellida",
+      "contenu": ""
+    },
+    {
+      "titre": "Luidgi Joseph",
+      "contenu": "IT"
+    },
+    {
+      "titre": "Assemblage (2)",
+      "contenu": "Beaucoup trop de monde pour que je puisse tout citer"
+    },
+    {
+      "titre": "Graissage",
+      "contenu": ""
+    },
+    {
+      "titre": "Expédition",
+      "contenu": ""
+    },
+    {
+      "titre": "Expédition (2)",
+      "contenu": "J'ai pas les noms, malheureusement "
+    },
+    {
+      "titre": "Graissage (2)",
+      "contenu": "J'ai pas les noms malheureusement "
+    },
+    {
+      "titre": "Direction",
+      "contenu": ""
+    },
+    {
+      "titre": "Service client",
+      "contenu": ""
+    },
+    {
+      "titre": "Marketing",
+      "contenu": ""
+    },
+    {
+      "titre": "Comptabilité",
+      "contenu": ""
+    },
+    {
+      "titre": "Lola Velasco",
+      "contenu": "Marketing. Elle s'occupe des sites internet"
+    },
+    {
+      "titre": "Diego Noubel",
+      "contenu": "Marketing. Il fait du montage vidéo"
+    },
+    {
+      "titre": "Atelier",
+      "contenu": ""
+    },
+    {
+      "titre": "Alexis",
+      "contenu": "SAV"
+    },
+    {
+      "titre": "Igor Kovalenko",
+      "contenu": "Je sais pas qui c'est, je sais pas ce qu'il fait mais j'avais envie de le mettre là."
+    },
+    {
+      "titre": "Vissage, collage, couture, agrafage",
+      "contenu": ""
+    },
+    {
+      "titre": "Brice Goguet",
+      "contenu": "Patron"
+    },
+    {
+      "titre": "Gestion de production",
+      "contenu": "gestion des stocks et des commandes, achats du matériel et des matières premières"
+    },
+    {
+      "titre": "Frederic Fabre",
+      "contenu": "Gestion de prod. Il est responsable des achats"
+    }
+  ],
+  "positions": {
+    "0": {
+      "x": 13784,
+      "y": 3040,
+      "z": 13
+    },
+    "1": {
+      "x": 13878,
+      "y": 3097,
+      "z": 15
+    },
+    "2": {
+      "x": 14092,
+      "y": 3146,
+      "z": 11
+    },
+    "3": {
+      "x": 14252,
+      "y": 3184,
+      "z": 16
+    },
+    "4": {
+      "x": 14404,
+      "y": 3224,
+      "z": 40
+    },
+    "5": {
+      "x": 14956,
+      "y": 3072,
+      "z": 17
+    },
+    "6": {
+      "x": 15100,
+      "y": 2778,
+      "z": 11
+    },
+    "7": {
+      "x": 14818,
+      "y": 3141,
+      "z": 18
+    },
+    "8": {
+      "x": 14234,
+      "y": 2916,
+      "z": 35
+    },
+    "9": {
+      "x": 14147,
+      "y": 2806,
+      "z": 11
+    },
+    "10": {
+      "x": 14519,
+      "y": 2989,
+      "z": 15
+    },
+    "11": {
+      "x": 14552,
+      "y": 2775,
+      "z": 14
+    },
+    "12": {
+      "x": 14643,
+      "y": 2947,
+      "z": 41
+    },
+    "13": {
+      "x": 14967,
+      "y": 2982,
+      "z": 16
+    },
+    "14": {
+      "x": 14791,
+      "y": 2886,
+      "z": 43
+    },
+    "15": {
+      "x": 14744,
+      "y": 3207,
+      "z": 21
+    },
+    "16": {
+      "x": 14800,
+      "y": 2775,
+      "z": 44
+    },
+    "17": {
+      "x": 15063,
+      "y": 2675,
+      "z": 21
+    },
+    "18": {
+      "x": 15079,
+      "y": 2878,
+      "z": 20
+    },
+    "19": {
+      "x": 14543,
+      "y": 3284,
+      "z": 11
+    },
+    "20": {
+      "x": 14688,
+      "y": 2575,
+      "z": 24
+    },
+    "21": {
+      "x": 14390,
+      "y": 2572,
+      "z": 23
+    },
+    "22": {
+      "x": 14335,
+      "y": 2436,
+      "z": 27
+    },
+    "23": {
+      "x": 14831,
+      "y": 2468,
+      "z": 11
+    },
+    "24": {
+      "x": 14144,
+      "y": 2732,
+      "z": 30
+    },
+    "25": {
+      "x": 14528,
+      "y": 2608,
+      "z": 28
+    },
+    "26": {
+      "x": 14288,
+      "y": 2650,
+      "z": 29
+    },
+    "27": {
+      "x": 14745,
+      "y": 2677,
+      "z": 14
+    },
+    "28": {
+      "x": 13858,
+      "y": 2653,
+      "z": 34
+    },
+    "29": {
+      "x": 13875,
+      "y": 2518,
+      "z": 18
+    },
+    "30": {
+      "x": 14541,
+      "y": 2852,
+      "z": 15
+    },
+    "31": {
+      "x": 14674,
+      "y": 3244,
+      "z": 25
+    },
+    "32": {
+      "x": 14922,
+      "y": 2557,
+      "z": 22
+    },
+    "33": {
+      "x": 14468,
+      "y": 3166,
+      "z": 11
+    },
+    "34": {
+      "x": 13931,
+      "y": 2736,
+      "z": 12
+    },
+    "35": {
+      "x": 14199,
+      "y": 2862,
+      "z": 12
+    },
+    "36": {
+      "x": 13747,
+      "y": 2910,
+      "z": 14
+    },
+    "37": {
+      "x": 15475,
+      "y": 2815
+    }
+  },
+  "liens": [
+    {
+      "a": 11,
+      "b": 9
+    },
+    {
+      "a": 8,
+      "b": 0
+    },
+    {
+      "a": 8,
+      "b": 1
+    },
+    {
+      "a": 2,
+      "b": 8
+    },
+    {
+      "a": 3,
+      "b": 8
+    },
+    {
+      "a": 11,
+      "b": 14
+    },
+    {
+      "a": 14,
+      "b": 13
+    },
+    {
+      "a": 14,
+      "b": 5
+    },
+    {
+      "a": 14,
+      "b": 7
+    },
+    {
+      "a": 14,
+      "b": 15
+    },
+    {
+      "a": 11,
+      "b": 16
+    },
+    {
+      "a": 16,
+      "b": 6
+    },
+    {
+      "a": 16,
+      "b": 17
+    },
+    {
+      "a": 14,
+      "b": 18
+    },
+    {
+      "a": 10,
+      "b": 19
+    },
+    {
+      "a": 11,
+      "b": 20
+    },
+    {
+      "a": 21,
+      "b": 11
+    },
+    {
+      "a": 23,
+      "b": 20
+    },
+    {
+      "a": 21,
+      "b": 22
+    },
+    {
+      "a": 11,
+      "b": 25
+    },
+    {
+      "a": 11,
+      "b": 27
+    },
+    {
+      "a": 11,
+      "b": 26
+    },
+    {
+      "a": 11,
+      "b": 24
+    },
+    {
+      "a": 26,
+      "b": 29
+    },
+    {
+      "a": 28,
+      "b": 26
+    },
+    {
+      "a": 11,
+      "b": 30
+    },
+    {
+      "a": 30,
+      "b": 12
+    },
+    {
+      "a": 30,
+      "b": 10
+    },
+    {
+      "a": 30,
+      "b": 8
+    },
+    {
+      "a": 30,
+      "b": 4
+    },
+    {
+      "a": 12,
+      "b": 31
+    },
+    {
+      "a": 10,
+      "b": 33
+    },
+    {
+      "a": 24,
+      "b": 34
+    },
+    {
+      "a": 11,
+      "b": 35
+    },
+    {
+      "a": 35,
+      "b": 36
+    }
+  ],
+  "reduites": {
+    "0": true,
+    "1": true,
+    "2": true,
+    "3": true,
+    "4": true,
+    "5": true,
+    "6": true,
+    "7": true,
+    "8": true,
+    "9": true,
+    "10": true,
+    "11": true,
+    "12": true,
+    "13": true,
+    "14": true,
+    "15": true,
+    "16": true,
+    "17": true,
+    "18": true,
+    "19": true,
+    "20": true,
+    "21": true,
+    "22": true,
+    "23": true,
+    "24": true,
+    "25": true,
+    "26": true,
+    "27": true,
+    "28": true,
+    "29": true,
+    "30": true,
+    "31": true,
+    "32": true,
+    "33": true,
+    "34": true,
+    "35": true,
+    "36": true
+  }
+}
